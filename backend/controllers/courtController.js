@@ -28,6 +28,17 @@ async function list(req, res, next) {
 	}
 }
 
+async function publicList(req, res, next) {
+	try {
+		const [rows] = await pool.query(
+			"SELECT id, name, open_time, close_time FROM courts WHERE status <> 'inactive' ORDER BY name",
+		);
+		res.json(rows);
+	} catch (err) {
+		next(err);
+	}
+}
+
 async function create(req, res, next) {
 	try {
 		const {
@@ -157,6 +168,17 @@ async function update(req, res, next) {
 async function remove(req, res, next) {
 	try {
 		const { id } = req.params;
+		const [pendingRows] = await pool.query(
+			"SELECT COUNT(*) AS cnt FROM reservations WHERE court_id = ? AND status <> 'cancelled' AND (date > CURDATE() OR (date = CURDATE() AND end_time > CURTIME()))",
+			[id],
+		);
+		const pendingCount = Number(pendingRows?.[0]?.cnt || 0);
+		if (pendingCount > 0) {
+			return res.status(409).json({
+				message:
+					"No se puede eliminar la cancha porque tiene reservas pendientes.",
+			});
+		}
 		const [result] = await pool.query("DELETE FROM courts WHERE id = ?", [
 			id,
 		]);
@@ -168,4 +190,4 @@ async function remove(req, res, next) {
 	}
 }
 
-module.exports = { list, create, update, remove };
+module.exports = { list, publicList, create, update, remove };

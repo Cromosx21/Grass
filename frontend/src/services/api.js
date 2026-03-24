@@ -30,6 +30,11 @@ export async function listCourts() {
 	return res.data;
 }
 
+export async function listPublicCourts() {
+	const res = await api.get("/api/courts/public");
+	return res.data;
+}
+
 export async function createCourt(data) {
 	const res = await api.post("/api/courts", data);
 	return res.data;
@@ -47,6 +52,11 @@ export async function deleteCourt(id) {
 
 export async function listReservations(params) {
 	const res = await api.get("/api/reservations", { params });
+	return res.data;
+}
+
+export async function listPublicReservations(params) {
+	const res = await api.get("/api/reservations/public", { params });
 	return res.data;
 }
 

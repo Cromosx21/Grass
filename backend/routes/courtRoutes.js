@@ -3,6 +3,7 @@ const router = express.Router()
 const auth = require('../middlewares/auth')
 const courtController = require('../controllers/courtController')
 
+router.get('/public', courtController.publicList)
 router.get('/', auth, courtController.list)
 router.post('/', auth, courtController.create)
 router.put('/:id', auth, courtController.update)

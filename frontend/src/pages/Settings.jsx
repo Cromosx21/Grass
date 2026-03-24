@@ -8,9 +8,28 @@ import {
 	createProduct,
 	updateProduct,
 	deleteProduct,
+	listReservationsHistory,
 	listUsers,
 	updateUser,
 } from "../services/api";
+import {
+	LuPlus,
+	LuPencil,
+	LuTrash2,
+	LuCircleCheck,
+	LuCircleAlert,
+	LuClock,
+	LuDollarSign,
+	LuUser,
+	LuMail,
+	LuPhone,
+	LuSave,
+	LuX,
+	LuPackage,
+	LuLayoutDashboard,
+	LuUsers,
+	LuSearch,
+} from "react-icons/lu";
 
 const fmtMoney = new Intl.NumberFormat("es-PE", {
 	style: "currency",
@@ -21,6 +40,28 @@ const fmtMoney = new Intl.NumberFormat("es-PE", {
 
 function money(v) {
 	return fmtMoney.format(Number(v || 0));
+}
+
+function formatISODateLocal(d) {
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, "0");
+	const day = String(d.getDate()).padStart(2, "0");
+	return `${y}-${m}-${day}`;
+}
+
+function addDays(dateStr, deltaDays) {
+	const d = new Date(`${dateStr}T12:00:00`);
+	if (Number.isNaN(d.getTime())) return dateStr;
+	d.setDate(d.getDate() + deltaDays);
+	return formatISODateLocal(d);
+}
+
+function nowTimeHHMMSS() {
+	const d = new Date();
+	const hh = String(d.getHours()).padStart(2, "0");
+	const mm = String(d.getMinutes()).padStart(2, "0");
+	const ss = String(d.getSeconds()).padStart(2, "0");
+	return `${hh}:${mm}:${ss}`;
 }
 
 export default function Settings() {
@@ -66,6 +107,22 @@ export default function Settings() {
 	const [uMessage, setUMessage] = useState("");
 	const [uError, setUError] = useState("");
 	const [tab, setTab] = useState("canchas");
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [deleteKind, setDeleteKind] = useState(null);
+	const [deleteItem, setDeleteItem] = useState(null);
+	const [deleteText, setDeleteText] = useState("");
+	const [deleteError, setDeleteError] = useState("");
+	const [deleteLoading, setDeleteLoading] = useState(false);
+	const [deleteChecking, setDeleteChecking] = useState(false);
+	const [deleteBlocked, setDeleteBlocked] = useState(false);
+	const [deleteBlockedReason, setDeleteBlockedReason] = useState("");
+
+	const deletePhrase =
+		deleteKind === "court"
+			? "Eliminar Cancha"
+			: deleteKind === "product"
+				? "Eliminar Producto"
+				: "";
 
 	async function refresh() {
 		const [cs, ps, us] = await Promise.all([
@@ -81,6 +138,108 @@ export default function Settings() {
 	useEffect(() => {
 		refresh();
 	}, []);
+
+	function closeDelete() {
+		if (deleteLoading) return;
+		setDeleteOpen(false);
+		setDeleteKind(null);
+		setDeleteItem(null);
+		setDeleteText("");
+		setDeleteError("");
+		setDeleteChecking(false);
+		setDeleteBlocked(false);
+		setDeleteBlockedReason("");
+	}
+
+	async function checkCourtDeletable(courtId) {
+		setDeleteChecking(true);
+		setDeleteBlocked(false);
+		setDeleteBlockedReason("");
+		try {
+			const from = formatISODateLocal(new Date());
+			const to = addDays(from, 365);
+			const rows = await listReservationsHistory({
+				from,
+				to,
+				court_id: courtId,
+			});
+			const today = formatISODateLocal(new Date());
+			const nowTime = nowTimeHHMMSS();
+			const pending = (Array.isArray(rows) ? rows : []).some((r) => {
+				if (String(r?.status || "") === "cancelled") return false;
+				const date = String(r?.date || "");
+				if (date > today) return true;
+				if (date < today) return false;
+				return String(r?.end_time || "00:00:00") > nowTime;
+			});
+			if (pending) {
+				setDeleteBlocked(true);
+				setDeleteBlockedReason(
+					"No se puede eliminar la cancha porque tiene reservas pendientes.",
+				);
+			}
+		} catch {
+		} finally {
+			setDeleteChecking(false);
+		}
+	}
+
+	function openDeleteCourt(c) {
+		setDeleteKind("court");
+		setDeleteItem({ id: c.id, name: c.name || "" });
+		setDeleteText("");
+		setDeleteError("");
+		setDeleteBlocked(false);
+		setDeleteBlockedReason("");
+		setDeleteOpen(true);
+		checkCourtDeletable(c.id);
+	}
+
+	function openDeleteProduct(p) {
+		setDeleteKind("product");
+		setDeleteItem({ id: p.id, name: p.name || "" });
+		setDeleteText("");
+		setDeleteError("");
+		setDeleteBlocked(false);
+		setDeleteBlockedReason("");
+		setDeleteOpen(true);
+	}
+
+	async function confirmDelete() {
+		if (!deleteKind || !deleteItem?.id) return;
+		if (deleteText !== deletePhrase) {
+			setDeleteError(`Escribí exactamente "${deletePhrase}".`);
+			return;
+		}
+		if (deleteBlocked) {
+			setDeleteError(deleteBlockedReason);
+			return;
+		}
+		setDeleteLoading(true);
+		setDeleteError("");
+		try {
+			if (deleteKind === "court") {
+				await deleteCourt(deleteItem.id);
+				setCMessage("Cancha eliminada correctamente.");
+				setCError("");
+				if (String(cEditId) === String(deleteItem.id)) setCEditId(null);
+			} else if (deleteKind === "product") {
+				await deleteProduct(deleteItem.id);
+				setPMessage("Producto eliminado correctamente.");
+				setPError("");
+				if (String(pEditId) === String(deleteItem.id)) setPEditId(null);
+			}
+			closeDelete();
+			await refresh();
+		} catch (e) {
+			setDeleteError(
+				e?.response?.data?.message ||
+					"No se pudo eliminar el registro.",
+			);
+		} finally {
+			setDeleteLoading(false);
+		}
+	}
 
 	const hourOptions = Array.from(
 		{ length: 24 },
@@ -122,7 +281,7 @@ export default function Settings() {
 				open_time: cForm.open_time,
 				close_time: cForm.close_time,
 			});
-			setCMessage("Cancha creada");
+			setCMessage("Cancha creada correctamente.");
 			setCForm({
 				name: "",
 				day_price: 0,
@@ -152,7 +311,7 @@ export default function Settings() {
 				price: pForm.price,
 				stock: pForm.stock,
 			});
-			setPMessage("Producto creado");
+			setPMessage("Producto creado correctamente.");
 			setPForm({ name: "", price: 0, stock: 0 });
 			refresh();
 		} catch (err) {
@@ -180,7 +339,7 @@ export default function Settings() {
 		setUError("");
 		const id = Number(uForm.id);
 		if (!id) {
-			setUError("Seleccioná un usuario para editar.");
+			setUError("Selecciona un usuario para editar.");
 			return;
 		}
 		const payload = {
@@ -192,7 +351,7 @@ export default function Settings() {
 			payload.password = uForm.password;
 		try {
 			await updateUser(id, payload);
-			setUMessage("Usuario actualizado");
+			setUMessage("Usuario actualizado correctamente.");
 			setUForm((f) => ({ ...f, password: "" }));
 			refresh();
 		} catch (err) {
@@ -204,71 +363,72 @@ export default function Settings() {
 	}
 
 	return (
-		<div>
-			<div className="flex items-center gap-2 mb-4">
-				<button
-					type="button"
-					className={
-						tab === "canchas"
-							? "px-3 py-2 rounded bg-blue-600 text-white"
-							: "px-3 py-2 rounded border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
-					}
-					onClick={() => setTab("canchas")}
-				>
-					Canchas
-				</button>
-				<button
-					type="button"
-					className={
-						tab === "productos"
-							? "px-3 py-2 rounded bg-blue-600 text-white"
-							: "px-3 py-2 rounded border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
-					}
-					onClick={() => setTab("productos")}
-				>
-					Productos
-				</button>
-				<button
-					type="button"
-					className={
-						tab === "usuarios"
-							? "px-3 py-2 rounded bg-blue-600 text-white"
-							: "px-3 py-2 rounded border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
-					}
-					onClick={() => setTab("usuarios")}
-				>
-					Usuarios
-				</button>
+		<div className="space-y-6">
+			{/* Cabecera */}
+			<div>
+				<h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+					Configuración
+				</h1>
+				<p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+					Administra las canchas, productos y usuarios del sistema.
+				</p>
 			</div>
 
-			{tab === "canchas" ? (
+			{/* Navegación de pestañas */}
+			<div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl w-fit">
+				{[
+					{
+						id: "canchas",
+						label: "Canchas",
+						icon: LuLayoutDashboard,
+					},
+					{ id: "productos", label: "Productos", icon: LuPackage },
+					{ id: "usuarios", label: "Usuarios", icon: LuUsers },
+				].map((t) => (
+					<button
+						key={t.id}
+						type="button"
+						className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+							tab === t.id
+								? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
+								: "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+						}`}
+						onClick={() => setTab(t.id)}
+					>
+						<t.icon size={18} />
+						{t.label}
+					</button>
+				))}
+			</div>
+
+			{/* Contenido Canchas */}
+			{tab === "canchas" && (
 				<div className="flex flex-col lg:flex-row gap-6">
-					<div className="w-full lg:w-[380px] lg:shrink-0">
-						<div className="lg:sticky lg:top-4">
-							<div className="text-lg font-semibold mb-3">
-								Nueva cancha
+					<div className="w-full lg:w-[400px] shrink-0">
+						<div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+							<div className="bg-slate-50 dark:bg-slate-800/50 px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
+								<LuPlus className="text-blue-500" /> Nueva
+								Cancha
 							</div>
-							<form
-								onSubmit={addCourt}
-								className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800"
-							>
-								{cError ? (
-									<div className="text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded p-2 mb-3">
-										{cError}
+							<form onSubmit={addCourt} className="p-5 space-y-4">
+								{cError && (
+									<div className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg p-3 flex items-center gap-2">
+										<LuCircleAlert size={16} /> {cError}
 									</div>
-								) : null}
-								{cMessage ? (
-									<div className="text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900/60 rounded p-2 mb-3">
-										{cMessage}
+								)}
+								{cMessage && (
+									<div className="text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-lg p-3 flex items-center gap-2">
+										<LuCircleCheck size={16} /> {cMessage}
 									</div>
-								) : null}
-								<div className="mb-3">
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+								)}
+
+								<div>
+									<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
 										Nombre
 									</label>
 									<input
-										className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-										placeholder="Cancha 1"
+										className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+										placeholder="Ej: Cancha 1"
 										value={cForm.name}
 										onChange={(e) =>
 											setCForm({
@@ -278,236 +438,259 @@ export default function Settings() {
 										}
 									/>
 								</div>
-								<div className="mb-4">
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-										Precio día
-									</label>
-									<input
-										className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-										type="number"
-										step="0.01"
-										placeholder="0.00"
-										value={cForm.day_price}
-										onChange={(e) =>
-											setCForm({
-												...cForm,
-												day_price: e.target.value,
-											})
-										}
-									/>
-								</div>
-								<div className="mb-4">
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-										Precio noche
-									</label>
-									<input
-										className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-										type="number"
-										step="0.01"
-										placeholder="0.00"
-										value={cForm.night_price}
-										onChange={(e) =>
-											setCForm({
-												...cForm,
-												night_price: e.target.value,
-											})
-										}
-									/>
-								</div>
-								<div className="mb-4">
-									<div className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-										Horario de atención
+
+								<div className="grid grid-cols-2 gap-4">
+									<div>
+										<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+											Precio Día
+										</label>
+										<div className="relative">
+											<LuDollarSign
+												className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+												size={16}
+											/>
+											<input
+												type="number"
+												step="0.01"
+												className="w-full pl-9 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+												value={cForm.day_price}
+												onChange={(e) =>
+													setCForm({
+														...cForm,
+														day_price:
+															e.target.value,
+													})
+												}
+											/>
+										</div>
 									</div>
+									<div>
+										<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+											Precio Noche
+										</label>
+										<div className="relative">
+											<LuDollarSign
+												className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+												size={16}
+											/>
+											<input
+												type="number"
+												step="0.01"
+												className="w-full pl-9 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+												value={cForm.night_price}
+												onChange={(e) =>
+													setCForm({
+														...cForm,
+														night_price:
+															e.target.value,
+													})
+												}
+											/>
+										</div>
+									</div>
+								</div>
+
+								<div>
+									<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+										<LuClock size={16} /> Horario de
+										Atención
+									</label>
 									<div className="grid grid-cols-2 gap-3">
-										<div>
-											<div className="text-xs text-gray-600 dark:text-gray-300 mb-1">
-												Apertura
-											</div>
-											<select
-												className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-												value={cForm.open_time}
-												onChange={(e) =>
-													setCForm({
-														...cForm,
-														open_time:
-															e.target.value,
-													})
-												}
-											>
-												{hourOptions.map((t) => (
-													<option key={t} value={t}>
-														{t}
-													</option>
-												))}
-											</select>
-										</div>
-										<div>
-											<div className="text-xs text-gray-600 dark:text-gray-300 mb-1">
-												Cierre
-											</div>
-											<select
-												className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-												value={cForm.close_time}
-												onChange={(e) =>
-													setCForm({
-														...cForm,
-														close_time:
-															e.target.value,
-													})
-												}
-											>
-												{hourOptions.map((t) => (
-													<option key={t} value={t}>
-														{t}
-													</option>
-												))}
-											</select>
-										</div>
+										<select
+											className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+											value={cForm.open_time}
+											onChange={(e) =>
+												setCForm({
+													...cForm,
+													open_time: e.target.value,
+												})
+											}
+										>
+											{hourOptions.map((t) => (
+												<option key={t} value={t}>
+													{t}
+												</option>
+											))}
+										</select>
+										<select
+											className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+											value={cForm.close_time}
+											onChange={(e) =>
+												setCForm({
+													...cForm,
+													close_time: e.target.value,
+												})
+											}
+										>
+											{hourOptions.map((t) => (
+												<option key={t} value={t}>
+													{t}
+												</option>
+											))}
+										</select>
 									</div>
 								</div>
-								<button className="bg-blue-600 hover:bg-blue-700 transition text-white px-3 py-2 rounded w-full">
-									Agregar
+
+								<button className="w-full bg-blue-600 hover:bg-blue-700 transition-colors text-white font-medium py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-sm">
+									<LuPlus size={18} /> Agregar Cancha
 								</button>
 							</form>
 						</div>
 					</div>
-					<div className="flex-1">
-						<div className="text-lg font-semibold mb-3">
-							Canchas
-						</div>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+					<div className="flex-1 space-y-4">
+						<h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+							<LuLayoutDashboard className="text-blue-500" />{" "}
+							Lista de Canchas
+						</h3>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							{courts.map((c) => (
 								<div
 									key={c.id}
-									className="bg-white dark:bg-gray-900 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 flex items-center justify-between"
+									className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-5 transition-all hover:shadow-md"
 								>
 									{cEditId === c.id ? (
-										<div className="w-full grid grid-cols-1 md:grid-cols-2 gap-3">
-											<div>
-												<label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">
-													Nombre
-												</label>
-												<input
-													className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2"
-													value={cEditForm.name}
-													onChange={(e) =>
-														setCEditForm((f) => ({
-															...f,
-															name: e.target
-																.value,
-														}))
-													}
-												/>
-											</div>
-											<div>
-												<div className="block text-xs text-gray-600 dark:text-gray-300 mb-1">
-													Precio día
+										<div className="space-y-4">
+											<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+												<div className="sm:col-span-2">
+													<label className="block text-xs font-medium text-slate-500 mb-1">
+														Nombre
+													</label>
+													<input
+														className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-sm"
+														value={cEditForm.name}
+														onChange={(e) =>
+															setCEditForm(
+																(f) => ({
+																	...f,
+																	name: e
+																		.target
+																		.value,
+																}),
+															)
+														}
+													/>
 												</div>
-												<input
-													type="number"
-													step="0.01"
-													className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2"
-													value={cEditForm.day_price}
-													onChange={(e) =>
-														setCEditForm((f) => ({
-															...f,
-															day_price:
-																e.target.value,
-														}))
-													}
-												/>
-											</div>
-											<div>
-												<div className="block text-xs text-gray-600 dark:text-gray-300 mb-1">
-													Precio noche
+												<div>
+													<label className="block text-xs font-medium text-slate-500 mb-1">
+														P. Día
+													</label>
+													<input
+														type="number"
+														className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-sm"
+														value={
+															cEditForm.day_price
+														}
+														onChange={(e) =>
+															setCEditForm(
+																(f) => ({
+																	...f,
+																	day_price:
+																		e.target
+																			.value,
+																}),
+															)
+														}
+													/>
 												</div>
-												<input
-													type="number"
-													step="0.01"
-													className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2"
-													value={
-														cEditForm.night_price
-													}
-													onChange={(e) =>
-														setCEditForm((f) => ({
-															...f,
-															night_price:
-																e.target.value,
-														}))
-													}
-												/>
-											</div>
-											<div>
-												<div className="block text-xs text-gray-600 dark:text-gray-300 mb-1">
-													Apertura
+												<div>
+													<label className="block text-xs font-medium text-slate-500 mb-1">
+														P. Noche
+													</label>
+													<input
+														type="number"
+														className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-sm"
+														value={
+															cEditForm.night_price
+														}
+														onChange={(e) =>
+															setCEditForm(
+																(f) => ({
+																	...f,
+																	night_price:
+																		e.target
+																			.value,
+																}),
+															)
+														}
+													/>
 												</div>
-												<select
-													className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2"
-													value={cEditForm.open_time}
-													onChange={(e) =>
-														setCEditForm((f) => ({
-															...f,
-															open_time:
-																e.target.value,
-														}))
-													}
-												>
-													{hourOptions.map((t) => (
-														<option
-															key={t}
-															value={t}
-														>
-															{t}
-														</option>
-													))}
-												</select>
-											</div>
-											<div>
-												<div className="block text-xs text-gray-600 dark:text-gray-300 mb-1">
-													Cierre
+												<div>
+													<label className="block text-xs font-medium text-slate-500 mb-1">
+														Abre
+													</label>
+													<select
+														className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-sm"
+														value={
+															cEditForm.open_time
+														}
+														onChange={(e) =>
+															setCEditForm(
+																(f) => ({
+																	...f,
+																	open_time:
+																		e.target
+																			.value,
+																}),
+															)
+														}
+													>
+														{hourOptions.map(
+															(t) => (
+																<option
+																	key={t}
+																	value={t}
+																>
+																	{t}
+																</option>
+															),
+														)}
+													</select>
 												</div>
-												<select
-													className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2"
-													value={cEditForm.close_time}
-													onChange={(e) =>
-														setCEditForm((f) => ({
-															...f,
-															close_time:
-																e.target.value,
-														}))
-													}
-												>
-													{hourOptions.map((t) => (
-														<option
-															key={t}
-															value={t}
-														>
-															{t}
-														</option>
-													))}
-												</select>
+												<div>
+													<label className="block text-xs font-medium text-slate-500 mb-1">
+														Cierra
+													</label>
+													<select
+														className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-sm"
+														value={
+															cEditForm.close_time
+														}
+														onChange={(e) =>
+															setCEditForm(
+																(f) => ({
+																	...f,
+																	close_time:
+																		e.target
+																			.value,
+																}),
+															)
+														}
+													>
+														{hourOptions.map(
+															(t) => (
+																<option
+																	key={t}
+																	value={t}
+																>
+																	{t}
+																</option>
+															),
+														)}
+													</select>
+												</div>
 											</div>
-											<div className="flex items-center justify-end gap-2 md:col-span-2">
+											<div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
 												<button
-													type="button"
-													className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-													onClick={() => {
-														setCEditId(null);
-														setCEditForm({
-															name: "",
-															day_price: "",
-															night_price: "",
-															open_time: "07:00",
-															close_time: "22:00",
-															status: "active",
-														});
-													}}
+													className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 flex items-center gap-1"
+													onClick={() =>
+														setCEditId(null)
+													}
 												>
-													Cancelar
+													<LuX size={16} /> Cancelar
 												</button>
 												<button
-													type="button"
-													className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 transition text-white"
+													className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-blue-700 flex items-center gap-1"
 													onClick={async () => {
 														try {
 															const openM =
@@ -519,19 +702,6 @@ export default function Settings() {
 																	cEditForm.close_time,
 																);
 															if (
-																!Number.isFinite(
-																	openM,
-																) ||
-																!Number.isFinite(
-																	closeM,
-																)
-															) {
-																setCError(
-																	"El horario es inválido.",
-																);
-																return;
-															}
-															if (
 																closeM <= openM
 															) {
 																setCError(
@@ -542,10 +712,7 @@ export default function Settings() {
 															await updateCourt(
 																c.id,
 																{
-																	name: String(
-																		cEditForm.name ||
-																			c.name,
-																	).trim(),
+																	name: cEditForm.name.trim(),
 																	day_price:
 																		cEditForm.day_price,
 																	night_price:
@@ -559,68 +726,93 @@ export default function Settings() {
 															setCMessage(
 																"Cancha actualizada",
 															);
-															setCError("");
 															setCEditId(null);
 															refresh();
 														} catch (err) {
 															setCError(
-																err?.response
-																	?.data
-																	?.message ||
-																	"No se pudo actualizar la cancha",
+																"Error al actualizar",
 															);
 														}
 													}}
 												>
-													Guardar
+													<LuSave size={16} /> Guardar
 												</button>
 											</div>
 										</div>
 									) : (
-										<>
+										<div className="flex flex-col h-full justify-between">
 											<div>
-												<div className="font-semibold">
-													{c.name}
+												<div className="flex items-center justify-between mb-2">
+													<div className="font-bold text-slate-900 dark:text-white text-lg">
+														{c.name}
+													</div>
+													<div className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold px-2 py-1 rounded-full uppercase">
+														Activa
+													</div>
 												</div>
-												<div className="text-gray-600 dark:text-gray-300 text-sm">
-													Día{" "}
-													{money(
-														c.day_price ??
-															c.base_price,
-													)}{" "}
-													· Noche{" "}
-													{money(
-														c.night_price ??
-															c.day_price ??
-															c.base_price,
-													)}
-												</div>
-												<div className="text-gray-600 dark:text-gray-300 text-sm">
-													Horario{" "}
-													{String(
-														c.open_time || "07:00",
-													).slice(0, 5)}{" "}
-													-{" "}
-													{String(
-														c.close_time || "22:00",
-													).slice(0, 5)}
+												<div className="space-y-1.5">
+													<div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+														<LuDollarSign
+															size={14}
+															className="text-slate-400"
+														/>
+														<span>
+															Día:{" "}
+															<span className="font-semibold text-slate-900 dark:text-slate-200">
+																{money(
+																	c.day_price,
+																)}
+															</span>
+														</span>
+														<span className="text-slate-300">
+															|
+														</span>
+														<span>
+															Noche:{" "}
+															<span className="font-semibold text-slate-900 dark:text-slate-200">
+																{money(
+																	c.night_price,
+																)}
+															</span>
+														</span>
+													</div>
+													<div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+														<LuClock
+															size={14}
+															className="text-slate-400"
+														/>
+														<span>
+															Horario:{" "}
+															<span className="font-medium text-slate-900 dark:text-slate-200">
+																{String(
+																	c.open_time ||
+																		"07:00",
+																).slice(
+																	0,
+																	5,
+																)}{" "}
+																-{" "}
+																{String(
+																	c.close_time ||
+																		"22:00",
+																).slice(0, 5)}
+															</span>
+														</span>
+													</div>
 												</div>
 											</div>
-											<div className="flex items-center gap-2">
+											<div className="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
 												<button
-													className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+													className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
 													onClick={() => {
 														setCEditId(c.id);
 														setCEditForm({
 															name: c.name || "",
 															day_price:
 																c.day_price ??
-																c.base_price ??
 																0,
 															night_price:
 																c.night_price ??
-																c.day_price ??
-																c.base_price ??
 																0,
 															open_time: String(
 																c.open_time ||
@@ -635,57 +827,60 @@ export default function Settings() {
 																"active",
 														});
 													}}
+													title="Editar"
 												>
-													Editar
+													<LuPencil size={18} />
 												</button>
 												<button
-													className="px-3 py-1.5 rounded border border-red-300 text-red-700 hover:bg-red-50"
+													className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
 													onClick={() =>
-														deleteCourt(c.id).then(
-															refresh,
-														)
+														openDeleteCourt(c)
 													}
+													title="Eliminar"
 												>
-													Eliminar
+													<LuTrash2 size={18} />
 												</button>
 											</div>
-										</>
+										</div>
 									)}
 								</div>
 							))}
 						</div>
 					</div>
 				</div>
-			) : null}
+			)}
 
-			{tab === "productos" ? (
+			{/* Contenido Productos */}
+			{tab === "productos" && (
 				<div className="flex flex-col lg:flex-row gap-6">
-					<div className="w-full lg:w-[380px] lg:shrink-0">
-						<div className="lg:sticky lg:top-4">
-							<div className="text-lg font-semibold mb-3">
-								Nuevo producto
+					<div className="w-full lg:w-[400px] shrink-0">
+						<div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+							<div className="bg-slate-50 dark:bg-slate-800/50 px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
+								<LuPlus className="text-blue-500" /> Nuevo
+								Producto
 							</div>
 							<form
 								onSubmit={addProduct}
-								className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800"
+								className="p-5 space-y-4"
 							>
-								{pError ? (
-									<div className="text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded p-2 mb-3">
-										{pError}
+								{pError && (
+									<div className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg p-3 flex items-center gap-2">
+										<LuCircleAlert size={16} /> {pError}
 									</div>
-								) : null}
-								{pMessage ? (
-									<div className="text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900/60 rounded p-2 mb-3">
-										{pMessage}
+								)}
+								{pMessage && (
+									<div className="text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-lg p-3 flex items-center gap-2">
+										<LuCircleCheck size={16} /> {pMessage}
 									</div>
-								) : null}
-								<div className="mb-3">
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+								)}
+
+								<div>
+									<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
 										Nombre
 									</label>
 									<input
-										className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-										placeholder="Pelotas fútbol"
+										className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+										placeholder="Ej: Gaseosa 500ml"
 										value={pForm.name}
 										onChange={(e) =>
 											setPForm({
@@ -695,67 +890,77 @@ export default function Settings() {
 										}
 									/>
 								</div>
-								<div className="mb-3">
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-										Precio
-									</label>
-									<input
-										className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-										type="number"
-										step="0.01"
-										placeholder="0.00"
-										value={pForm.price}
-										onChange={(e) =>
-											setPForm({
-												...pForm,
-												price: e.target.value,
-											})
-										}
-									/>
+
+								<div className="grid grid-cols-2 gap-4">
+									<div>
+										<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+											Precio
+										</label>
+										<div className="relative">
+											<LuDollarSign
+												className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+												size={16}
+											/>
+											<input
+												type="number"
+												step="0.01"
+												className="w-full pl-9 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+												value={pForm.price}
+												onChange={(e) =>
+													setPForm({
+														...pForm,
+														price: e.target.value,
+													})
+												}
+											/>
+										</div>
+									</div>
+									<div>
+										<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+											Stock Inicial
+										</label>
+										<input
+											type="number"
+											className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+											value={pForm.stock}
+											onChange={(e) =>
+												setPForm({
+													...pForm,
+													stock: e.target.value,
+												})
+											}
+										/>
+									</div>
 								</div>
-								<div className="mb-4">
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-										Stock
-									</label>
-									<input
-										className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-										type="number"
-										placeholder="0"
-										value={pForm.stock}
-										onChange={(e) =>
-											setPForm({
-												...pForm,
-												stock: e.target.value,
-											})
-										}
-									/>
-								</div>
-								<button className="bg-blue-600 hover:bg-blue-700 transition text-white px-3 py-2 rounded w-full">
-									Agregar
+
+								<button className="w-full bg-blue-600 hover:bg-blue-700 transition-colors text-white font-medium py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-sm">
+									<LuPlus size={18} /> Agregar Producto
 								</button>
 							</form>
 						</div>
 					</div>
-					<div className="flex-1">
-						<div className="flex flex-col sm:flex-row sm:items-end gap-3 mb-3">
-							<div className="flex-1">
-								<div className="text-lg font-semibold">
-									Productos
-								</div>
-							</div>
-							<div className="w-full sm:w-64">
-								<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-									Buscar
-								</label>
+
+					<div className="flex-1 space-y-4">
+						<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+							<h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+								<LuPackage className="text-blue-500" />{" "}
+								Inventario
+							</h3>
+							<div className="relative w-full sm:w-64">
+								<LuSearch
+									className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+									size={16}
+								/>
 								<input
-									className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-									placeholder="Nombre..."
+									className="w-full pl-9 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+									placeholder="Buscar producto..."
 									value={pQ}
 									onChange={(e) => setPQ(e.target.value)}
 								/>
 							</div>
 						</div>
-						<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+
+						<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
 							{products
 								.filter((p) =>
 									String(p.name || "")
@@ -767,12 +972,12 @@ export default function Settings() {
 								.map((p) => (
 									<div
 										key={p.id}
-										className="bg-white dark:bg-gray-900 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 flex flex-col gap-2"
+										className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-4 transition-all hover:shadow-md"
 									>
 										{pEditId === p.id ? (
-											<>
+											<div className="space-y-3">
 												<input
-													className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded p-2"
+													className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-sm"
 													value={pEditForm.name}
 													onChange={(e) =>
 														setPEditForm((f) => ({
@@ -786,7 +991,7 @@ export default function Settings() {
 													<input
 														type="number"
 														step="0.01"
-														className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded p-2"
+														className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-sm"
 														value={pEditForm.price}
 														onChange={(e) =>
 															setPEditForm(
@@ -801,7 +1006,7 @@ export default function Settings() {
 													/>
 													<input
 														type="number"
-														className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded p-2"
+														className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-sm"
 														value={pEditForm.stock}
 														onChange={(e) =>
 															setPEditForm(
@@ -815,34 +1020,23 @@ export default function Settings() {
 														}
 													/>
 												</div>
-												<div className="flex justify-end gap-2">
+												<div className="flex justify-end gap-2 pt-2">
 													<button
-														type="button"
-														className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-														onClick={() => {
-															setPEditId(null);
-															setPEditForm({
-																name: "",
-																price: "",
-																stock: "",
-																status: "active",
-															});
-														}}
+														className="text-xs font-medium text-slate-500 hover:text-slate-700"
+														onClick={() =>
+															setPEditId(null)
+														}
 													>
 														Cancelar
 													</button>
 													<button
-														type="button"
-														className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 transition text-white"
+														className="bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm"
 														onClick={async () => {
 															try {
 																await updateProduct(
 																	p.id,
 																	{
-																		name: String(
-																			pEditForm.name ||
-																				p.name,
-																		).trim(),
+																		name: pEditForm.name.trim(),
 																		price: pEditForm.price,
 																		stock: pEditForm.stock,
 																	},
@@ -850,18 +1044,13 @@ export default function Settings() {
 																setPMessage(
 																	"Producto actualizado",
 																);
-																setPError("");
 																setPEditId(
 																	null,
 																);
 																refresh();
 															} catch (err) {
 																setPError(
-																	err
-																		?.response
-																		?.data
-																		?.message ||
-																		"No se pudo actualizar el producto",
+																	"Error al actualizar",
 																);
 															}
 														}}
@@ -869,23 +1058,34 @@ export default function Settings() {
 														Guardar
 													</button>
 												</div>
-											</>
+											</div>
 										) : (
-											<>
-												<div className="flex items-center justify-between gap-2">
-													<div className="font-semibold truncate">
-														{p.name}
+											<div className="flex flex-col h-full justify-between">
+												<div>
+													<div className="flex justify-between items-start mb-2">
+														<div className="font-bold text-slate-900 dark:text-white truncate pr-2">
+															{p.name}
+														</div>
+														<div className="text-blue-600 dark:text-blue-400 font-bold">
+															{money(p.price)}
+														</div>
 													</div>
-													<div className="text-sm font-medium">
-														{money(p.price)}
+													<div className="flex items-center gap-1.5 text-sm">
+														<span className="text-slate-500">
+															Stock:
+														</span>
+														<span
+															className={`font-bold ${Number(p.stock || 0) <= 5 ? "text-red-500" : "text-emerald-500"}`}
+														>
+															{Number(
+																p.stock || 0,
+															)}
+														</span>
 													</div>
 												</div>
-												<div className="text-xs text-gray-600 dark:text-gray-300">
-													Stock {Number(p.stock || 0)}
-												</div>
-												<div className="flex items-center justify-end gap-2">
+												<div className="flex items-center justify-end gap-1 mt-4">
 													<button
-														className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+														className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
 														onClick={() => {
 															setPEditId(p.id);
 															setPEditForm({
@@ -904,56 +1104,60 @@ export default function Settings() {
 															});
 														}}
 													>
-														Editar
+														<LuPencil size={16} />
 													</button>
 													<button
-														className="px-3 py-1.5 rounded border border-red-300 text-red-700 hover:bg-red-50"
+														className="p-2 text-slate-400 hover:text-red-600 transition-colors"
 														onClick={() =>
-															deleteProduct(
-																p.id,
-															).then(refresh)
+															openDeleteProduct(p)
 														}
 													>
-														Eliminar
+														<LuTrash2 size={16} />
 													</button>
 												</div>
-											</>
+											</div>
 										)}
 									</div>
 								))}
 						</div>
 					</div>
 				</div>
-			) : null}
+			)}
 
-			{tab === "usuarios" ? (
+			{/* Contenido Usuarios */}
+			{tab === "usuarios" && (
 				<div className="flex flex-col lg:flex-row gap-6">
-					<div className="w-full lg:w-[420px] lg:shrink-0">
-						<div className="lg:sticky lg:top-4">
-							<div className="text-lg font-semibold mb-3">
-								Editar usuario
+					<div className="w-full lg:w-[400px] shrink-0">
+						<div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+							<div className="bg-slate-50 dark:bg-slate-800/50 px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
+								<LuPencil className="text-blue-500" /> Editar
+								Perfil
 							</div>
 							<form
 								onSubmit={onUpdateUser}
-								className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800"
+								className="p-5 space-y-4"
 							>
-								{uError ? (
-									<div className="text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded p-2 mb-3">
-										{uError}
+								{uError && (
+									<div className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg p-3 flex items-center gap-2">
+										<LuCircleAlert size={16} /> {uError}
 									</div>
-								) : null}
-								{uMessage ? (
-									<div className="text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900/60 rounded p-2 mb-3">
-										{uMessage}
+								)}
+								{uMessage && (
+									<div className="text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-lg p-3 flex items-center gap-2">
+										<LuCircleCheck size={16} /> {uMessage}
 									</div>
-								) : null}
+								)}
 
-								<div className="mb-3">
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+								<div>
+									<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+										<LuUser
+											size={16}
+											className="text-slate-400"
+										/>{" "}
 										Nombre
 									</label>
 									<input
-										className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+										className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
 										value={uForm.name}
 										onChange={(e) =>
 											setUForm((f) => ({
@@ -964,12 +1168,16 @@ export default function Settings() {
 									/>
 								</div>
 
-								<div className="mb-3">
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+								<div>
+									<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+										<LuMail
+											size={16}
+											className="text-slate-400"
+										/>{" "}
 										Email
 									</label>
 									<input
-										className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+										className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
 										value={uForm.email}
 										onChange={(e) =>
 											setUForm((f) => ({
@@ -980,12 +1188,16 @@ export default function Settings() {
 									/>
 								</div>
 
-								<div className="mb-3">
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+								<div>
+									<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+										<LuPhone
+											size={16}
+											className="text-slate-400"
+										/>{" "}
 										Teléfono
 									</label>
 									<input
-										className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+										className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
 										value={uForm.phone}
 										onChange={(e) =>
 											setUForm((f) => ({
@@ -996,13 +1208,14 @@ export default function Settings() {
 									/>
 								</div>
 
-								<div className="mb-4">
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-										Nueva contraseña (opcional)
+								<div className="pt-2">
+									<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+										Nueva Contraseña
 									</label>
 									<input
 										type="password"
-										className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+										placeholder="Dejar en blanco para no cambiar"
+										className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
 										value={uForm.password}
 										onChange={(e) =>
 											setUForm((f) => ({
@@ -1013,48 +1226,142 @@ export default function Settings() {
 									/>
 								</div>
 
-								<button className="bg-blue-600 hover:bg-blue-700 transition text-white px-3 py-2 rounded w-full">
-									Guardar cambios
+								<button className="w-full bg-blue-600 hover:bg-blue-700 transition-colors text-white font-medium py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-sm">
+									<LuSave size={18} /> Guardar Cambios
 								</button>
 							</form>
 						</div>
 					</div>
-					<div className="flex-1">
-						<div className="text-lg font-semibold mb-3">
-							Usuarios
-						</div>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+					<div className="flex-1 space-y-4">
+						<h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+							<LuUsers className="text-blue-500" /> Usuarios del
+							Sistema
+						</h3>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							{users.map((u) => (
 								<div
 									key={u.id}
-									className="bg-white dark:bg-gray-900 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 flex items-center justify-between gap-3"
+									className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex items-center justify-between transition-all hover:shadow-md"
 								>
-									<div className="min-w-0">
-										<div className="font-semibold truncate">
-											{u.name}
+									<div className="flex items-center gap-3 min-w-0">
+										<div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 shrink-0">
+											<LuUser size={20} />
 										</div>
-										<div className="text-gray-600 dark:text-gray-300 text-sm truncate">
-											{u.email}
-											{u.phone ? ` · ${u.phone}` : ""}
+										<div className="min-w-0">
+											<div className="font-bold text-slate-900 dark:text-white truncate">
+												{u.name}
+											</div>
+											<div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+												{u.email}
+											</div>
 										</div>
 									</div>
-									<div className="flex items-center gap-2 shrink-0">
-										<button
-											type="button"
-											className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
-											onClick={() => onEditUser(u)}
-										>
-											Editar
-										</button>
-									</div>
+									<button
+										type="button"
+										className="px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors border border-blue-100 dark:border-blue-900/30"
+										onClick={() => onEditUser(u)}
+									>
+										Editar
+									</button>
 								</div>
 							))}
+							{!users.length && (
+								<div className="col-span-full py-12 text-center text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+									No hay otros usuarios registrados
+								</div>
+							)}
 						</div>
-						{users.length ? null : (
-							<div className="text-sm text-gray-600 dark:text-gray-300">
-								Sin usuarios
+					</div>
+				</div>
+			)}
+			{deleteOpen ? (
+				<div className="fixed inset-0 bg-black/50 flex items-center justify-center px-4 z-50">
+					<div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl p-5">
+						<div className="flex items-start justify-between gap-3">
+							<div className="min-w-0">
+								<div className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+									Confirmar eliminación
+								</div>
+								<div className="text-sm text-slate-600 dark:text-slate-300">
+									Para eliminar{" "}
+									{deleteKind === "court"
+										? "la cancha"
+										: "el producto"}
+									{deleteItem?.name
+										? ` “${deleteItem.name}”`
+										: ""}
+									, escribí{" "}
+									<span className="font-semibold">
+										{deletePhrase}
+									</span>
+									.
+								</div>
 							</div>
-						)}
+							<button
+								type="button"
+								onClick={closeDelete}
+								className="p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+								title="Cerrar"
+							>
+								<LuX size={18} />
+							</button>
+						</div>
+
+						{deleteKind === "court" && deleteChecking ? (
+							<div className="mt-3 text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
+								Validando reservas pendientes...
+							</div>
+						) : null}
+
+						{deleteBlocked ? (
+							<div className="mt-3 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg p-3">
+								{deleteBlockedReason}
+							</div>
+						) : null}
+
+						{deleteError ? (
+							<div className="mt-3 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg p-3">
+								{deleteError}
+							</div>
+						) : null}
+
+						<div className="mt-4">
+							<label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">
+								Escribí “{deletePhrase}”
+							</label>
+							<input
+								className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+								value={deleteText}
+								onChange={(e) => setDeleteText(e.target.value)}
+								placeholder={deletePhrase}
+								disabled={deleteLoading}
+							/>
+						</div>
+
+						<div className="mt-4 flex justify-end gap-2">
+							<button
+								type="button"
+								className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+								onClick={closeDelete}
+								disabled={deleteLoading}
+							>
+								Cancelar
+							</button>
+							<button
+								type="button"
+								className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 active:bg-red-800 transition-colors text-white font-medium disabled:opacity-50"
+								disabled={
+									deleteLoading ||
+									deleteChecking ||
+									deleteBlocked ||
+									deleteText !== deletePhrase
+								}
+								onClick={confirmDelete}
+							>
+								{deleteLoading ? "Eliminando..." : "Eliminar"}
+							</button>
+						</div>
 					</div>
 				</div>
 			) : null}

@@ -11,11 +11,12 @@ html.dark {
 }
 
 body {
-	background: #ffffff;
-	color: #111827;
+	background: #f8fafc; /* slate-50 */
+	color: #0f172a; /* slate-900 */
+	font-family: "Inter", system-ui, sans-serif;
 }
 
 html.dark body {
-	background: #030712;
-	color: #f9fafb;
+	background: #020617; /* slate-950 */
+	color: #f8fafc; /* slate-50 */
 }

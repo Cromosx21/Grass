@@ -1,10 +1,23 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
 	listCourts,
 	listReservations,
 	createReservation,
 	deleteReservation,
 } from "../services/api";
+import {
+	LuPlus,
+	LuCalendarDays,
+	LuClock,
+	LuMapPin,
+	LuPhone,
+	LuUser,
+	LuTrash2,
+	LuCreditCard,
+	LuChevronLeft,
+	LuChevronRight,
+	LuCalendar,
+} from "react-icons/lu";
 
 function today() {
 	const d = new Date();
@@ -144,9 +157,12 @@ export default function Reservations() {
 	const [deleteText, setDeleteText] = useState("");
 	const [deleteError, setDeleteError] = useState("");
 	const [deleteLoading, setDeleteLoading] = useState(false);
-	const [slotStartIdx, setSlotStartIdx] = useState(null);
-	const [slotEndIdx, setSlotEndIdx] = useState(null);
-	const [slotSelecting, setSlotSelecting] = useState(false);
+	const [selectedSlotIdxs, setSelectedSlotIdxs] = useState([]);
+	const [selectionTouched, setSelectionTouched] = useState(false);
+	const [nowMinutes, setNowMinutes] = useState(() => {
+		const d = new Date();
+		return d.getHours() * 60 + d.getMinutes();
+	});
 
 	const selectedCourt = courts.find(
 		(c) => String(c.id) === String(form.court_id || courtId),
@@ -167,7 +183,18 @@ export default function Reservations() {
 		nightRate,
 	});
 
-	const slots = buildHourlySlots(getCourtHours(selectedCourt));
+	const slots = useMemo(
+		() => buildHourlySlots(getCourtHours(selectedCourt)),
+		[selectedCourt],
+	);
+
+	useEffect(() => {
+		const id = window.setInterval(() => {
+			const d = new Date();
+			setNowMinutes(d.getHours() * 60 + d.getMinutes());
+		}, 30_000);
+		return () => window.clearInterval(id);
+	}, []);
 
 	function isSlotBusy(slot) {
 		const slotStart = toMinutes(slot.start);
@@ -183,6 +210,44 @@ export default function Reservations() {
 				),
 			);
 	}
+
+	function isSlotPast(slot) {
+		if (date !== today()) return false;
+		return toMinutes(slot.start) < nowMinutes;
+	}
+
+	function isContiguousSelection(idxs) {
+		if (!Array.isArray(idxs) || idxs.length <= 1) return true;
+		const sorted = [...idxs].sort((a, b) => a - b);
+		for (let i = 1; i < sorted.length; i += 1) {
+			if (sorted[i] !== sorted[i - 1] + 1) return false;
+		}
+		return true;
+	}
+
+	function applySelection(nextIdxs) {
+		const sorted = Array.isArray(nextIdxs)
+			? [...nextIdxs].sort((a, b) => a - b)
+			: [];
+		if (!sorted.length) {
+			const start = formatTime(selectedCourt?.open_time || "08:00");
+			const end = addHours(start, 1);
+			setForm((f) => ({ ...f, start_time: start, end_time: end }));
+			return;
+		}
+		const minIdx = sorted[0];
+		const maxIdx = sorted[sorted.length - 1];
+		if (!slots[minIdx] || !slots[maxIdx]) return;
+		setForm((f) => ({
+			...f,
+			start_time: slots[minIdx].start,
+			end_time: slots[maxIdx].end,
+		}));
+	}
+
+	useEffect(() => {
+		if (!show) setSelectionTouched(false);
+	}, [show]);
 
 	useEffect(() => {
 		listCourts().then((cs) => {
@@ -222,9 +287,8 @@ export default function Reservations() {
 		setError("");
 		setStep(1);
 		setPayMode("full");
-		setSlotStartIdx(0);
-		setSlotEndIdx(0);
-		setSlotSelecting(false);
+		setSelectedSlotIdxs([]);
+		setSelectionTouched(false);
 		const court = courts.find(
 			(c) => String(c.id) === String(form.court_id || courtId),
 		);
@@ -281,8 +345,42 @@ export default function Reservations() {
 		listReservations({ date, court_id: cid }).then(setModalReservations);
 	}, [show, date, courtId, form.court_id]);
 
+	useEffect(() => {
+		if (!show) return;
+		if (!slots.length) return;
+		if (selectionTouched) return;
+		if (selectedSlotIdxs.length) return;
+		const idx = slots.findIndex((s) => !isSlotBusy(s) && !isSlotPast(s));
+		if (idx === -1) return;
+		setSelectedSlotIdxs([idx]);
+		applySelection([idx]);
+	}, [
+		show,
+		slots,
+		modalReservations,
+		date,
+		nowMinutes,
+		selectedSlotIdxs.length,
+		selectionTouched,
+	]);
+
 	async function confirmReservation() {
 		setError("");
+		if (!selectedSlotIdxs.length) {
+			setError("Seleccioná un horario");
+			return;
+		}
+		if (!isContiguousSelection(selectedSlotIdxs)) {
+			setError("Seleccioná horas contiguas para una sola reserva.");
+			return;
+		}
+		if (
+			date === today() &&
+			toMinutes(formatTime(form.start_time)) < nowMinutes
+		) {
+			setError("No se puede reservar horas anteriores a la hora actual.");
+			return;
+		}
 		setSaving(true);
 		try {
 			const priceN = Number(form.price || 0);
@@ -344,162 +442,234 @@ export default function Reservations() {
 	}
 
 	return (
-		<div>
-			<div className="flex items-end gap-4 mb-6">
+		<div className="space-y-6">
+			<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
 				<div>
-					<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-						Fecha
-					</label>
-					<input
-						type="date"
-						className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-						value={date}
-						onChange={(e) => setDate(e.target.value)}
-					/>
-					<div className="flex items-center gap-2 mt-2">
-						<button
-							type="button"
-							className="px-2.5 py-1.5 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-sm"
-							onClick={() => setDate((d) => addDays(d, -1))}
-						>
-							Anterior
-						</button>
-						<button
-							type="button"
-							className="px-2.5 py-1.5 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-sm"
-							onClick={() => setDate(today())}
-						>
-							Hoy
-						</button>
-						<button
-							type="button"
-							className="px-2.5 py-1.5 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-sm"
-							onClick={() => setDate((d) => addDays(d, 1))}
-						>
-							Siguiente
-						</button>
-					</div>
-				</div>
-				<div>
-					<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-						Cancha
-					</label>
-					<select
-						className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-						value={courtId}
-						onChange={(e) => setCourtId(e.target.value)}
-					>
-						{courts.map((c) => (
-							<option key={c.id} value={c.id}>
-								{c.name}
-							</option>
-						))}
-					</select>
+					<h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+						Reservas
+					</h1>
+					<p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+						Gestiona las reservas y horarios de tus canchas.
+					</p>
 				</div>
 				<button
-					className="bg-blue-600 hover:bg-blue-700 transition text-white px-4 py-2 rounded h-[42px]"
+					className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors text-white px-4 py-2.5 rounded-lg shadow-sm font-medium flex items-center gap-2"
 					onClick={openModal}
 				>
+					<LuPlus size={18} />
 					Nueva reserva
 				</button>
 			</div>
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-				{reservations.map((r) => (
-					<div
-						key={r.id}
-						className="bg-white dark:bg-gray-900 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 flex justify-between gap-3"
-					>
-						<div>
-							<div className="font-semibold text-sm">
-								{r.customer_name}
-							</div>
-							<div className="text-gray-600 dark:text-gray-300 text-xs mt-1">
-								{String(r.date || "").slice(0, 10)} ·{" "}
-								{formatTime(r.start_time)} -{" "}
-								{formatTime(r.end_time)}
-							</div>
-							<div className="text-gray-600 dark:text-gray-300 text-xs mt-1">
-								Teléfono:{" "}
-								<span className="text-gray-800 dark:text-gray-100">
-									{r.customer_phone || "-"}
-								</span>
-							</div>
-							<div className="text-gray-600 dark:text-gray-300 text-xs mt-1">
-								Medio de pago:{" "}
-								<span className="text-gray-800 dark:text-gray-100">
-									{paymentMethodLabel(r.payment_method)}
-								</span>
-							</div>
-							{r.notes ? (
-								<div className="text-gray-600 dark:text-gray-300 text-xs mt-1">
-									Nota:{" "}
-									<span className="text-gray-800 dark:text-gray-100">
-										{r.notes}
-									</span>
-								</div>
-							) : null}
+
+			<div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl p-4 sm:p-5 flex flex-wrap gap-4 items-end">
+				<div>
+					<label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
+						Fecha
+					</label>
+					<div className="flex flex-wrap items-center gap-2">
+						<div className="relative">
+							<LuCalendarDays
+								className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+								size={16}
+							/>
+							<input
+								type="date"
+								className="pl-9 pr-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+								value={date}
+								onChange={(e) => setDate(e.target.value)}
+							/>
 						</div>
-						<div className="flex flex-col items-end gap-1.5">
-							<div className="text-right">
-								<div className="text-xs text-gray-500 dark:text-gray-400">
-									Precio
-								</div>
-								<div className="text-sm font-semibold">
-									{money(r.price)}
-								</div>
-							</div>
-							<div className="text-right">
-								<div className="text-xs text-gray-500 dark:text-gray-400">
-									Adelanto
-								</div>
-								<div className="text-sm font-semibold">
-									{money(r.deposit)}
-								</div>
-							</div>
-							<div className="text-right">
-								<div className="text-xs text-gray-500 dark:text-gray-400">
-									Falta
-								</div>
-								<div className="text-sm font-semibold">
-									{money(
-										r.remaining != null
-											? r.remaining
-											: Number(r.price || 0) -
-													Number(r.deposit || 0),
-									)}
-								</div>
-							</div>
+						<div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
 							<button
-								onClick={() => onDelete(r.id)}
-								className="text-red-600 dark:text-red-400 text-xs hover:underline"
+								type="button"
+								className="p-1.5 rounded-md text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all"
+								onClick={() => setDate((d) => addDays(d, -1))}
+								title="Día anterior"
 							>
-								Eliminar
+								<LuChevronLeft size={16} />
+							</button>
+							<button
+								type="button"
+								className="px-3 py-1 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all"
+								onClick={() => setDate(today())}
+							>
+								Hoy
+							</button>
+							<button
+								type="button"
+								className="p-1.5 rounded-md text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all"
+								onClick={() => setDate((d) => addDays(d, 1))}
+								title="Día siguiente"
+							>
+								<LuChevronRight size={16} />
 							</button>
 						</div>
 					</div>
-				))}
+				</div>
+				<div className="flex-1 min-w-[200px] max-w-[300px]">
+					<label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
+						Cancha
+					</label>
+					<div className="relative">
+						<LuMapPin
+							className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+							size={16}
+						/>
+						<select
+							className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors appearance-none"
+							value={courtId}
+							onChange={(e) => setCourtId(e.target.value)}
+						>
+							{courts.map((c) => (
+								<option key={c.id} value={c.id}>
+									{c.name}
+								</option>
+							))}
+						</select>
+					</div>
+				</div>
 			</div>
+
+			{reservations.length === 0 ? (
+				<div className="bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl py-12 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
+					<LuCalendar size={48} className="mb-4 opacity-20" />
+					<p className="text-lg font-medium text-slate-600 dark:text-slate-300">
+						No hay reservas para este día
+					</p>
+					<p className="text-sm mt-1">
+						Haz click en "Nueva reserva" para agregar una.
+					</p>
+				</div>
+			) : (
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+					{reservations.map((r) => (
+						<div
+							key={r.id}
+							className="bg-white dark:bg-slate-900 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 hover:shadow-lg transition-shadow overflow-hidden flex flex-col"
+						>
+							<div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-start">
+								<div>
+									<div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+										<LuUser
+											size={16}
+											className="text-blue-500"
+										/>
+										{r.customer_name}
+									</div>
+									<div className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium flex items-center gap-1.5">
+										<LuClock size={14} />
+										{formatTime(r.start_time)} -{" "}
+										{formatTime(r.end_time)}
+									</div>
+								</div>
+								<div className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-bold px-2 py-1 rounded-md">
+									{String(r.date || "").slice(0, 10)}
+								</div>
+							</div>
+
+							<div className="p-4 flex-1 flex flex-col gap-3">
+								<div className="space-y-2">
+									<div className="flex items-start gap-2 text-sm">
+										<LuPhone
+											className="text-slate-400 mt-0.5"
+											size={14}
+										/>
+										<span className="text-slate-700 dark:text-slate-300">
+											{r.customer_phone || (
+												<span className="text-slate-400 italic">
+													Sin teléfono
+												</span>
+											)}
+										</span>
+									</div>
+									<div className="flex items-start gap-2 text-sm">
+										<LuCreditCard
+											className="text-slate-400 mt-0.5"
+											size={14}
+										/>
+										<span className="text-slate-700 dark:text-slate-300 font-medium">
+											{paymentMethodLabel(
+												r.payment_method,
+											)}
+										</span>
+									</div>
+									{r.notes && (
+										<div className="text-sm bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-md p-2 mt-2 text-amber-800 dark:text-amber-400 italic">
+											{r.notes}
+										</div>
+									)}
+								</div>
+
+								<div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800">
+									<div className="grid grid-cols-3 gap-2 mb-3">
+										<div>
+											<div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">
+												Precio
+											</div>
+											<div className="font-semibold text-sm text-slate-900 dark:text-white">
+												{money(r.price)}
+											</div>
+										</div>
+										<div>
+											<div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">
+												Adelanto
+											</div>
+											<div className="font-semibold text-sm text-emerald-600 dark:text-emerald-400">
+												{money(r.deposit)}
+											</div>
+										</div>
+										<div>
+											<div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">
+												Falta
+											</div>
+											<div className="font-semibold text-sm text-amber-600 dark:text-amber-500">
+												{money(
+													r.remaining != null
+														? r.remaining
+														: Number(r.price || 0) -
+																Number(
+																	r.deposit ||
+																		0,
+																),
+												)}
+											</div>
+										</div>
+									</div>
+									<button
+										onClick={() => onDelete(r.id)}
+										className="w-full py-2 flex items-center justify-center gap-2 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-800/50"
+									>
+										<LuTrash2 size={14} />
+										Eliminar reserva
+									</button>
+								</div>
+							</div>
+						</div>
+					))}
+				</div>
+			)}
+
 			{show && (
-				<div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+				<div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
 					<form
 						onSubmit={(e) => e.preventDefault()}
-						className="bg-white dark:bg-gray-900 rounded-lg p-6 w-full max-w-md border border-gray-200 dark:border-gray-800"
+						className="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-xl max-h-[90vh] overflow-y-auto"
 					>
-						<div className="flex items-start justify-between gap-3 mb-4">
+						<div className="flex items-start justify-between gap-3 mb-6">
 							<div>
-								<h2 className="text-lg font-semibold">
+								<h2 className="text-xl font-bold text-slate-900 dark:text-white">
 									Nueva reserva
 								</h2>
-								<div className="text-sm text-gray-600 dark:text-gray-300">
+								<div className="text-sm font-medium text-blue-600 dark:text-blue-400 mt-1 bg-blue-50 dark:bg-blue-900/30 inline-block px-2 py-0.5 rounded-md">
 									Paso {step} de 4
 								</div>
 							</div>
 							<button
 								type="button"
 								onClick={closeModal}
-								className="px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300"
+								className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
 							>
-								Cerrar
+								✕
 							</button>
 						</div>
 
@@ -558,9 +728,8 @@ export default function Reservations() {
 												court?.open_time || "08:00",
 											);
 											const end = addHours(start, 1);
-											setSlotStartIdx(0);
-											setSlotEndIdx(0);
-											setSlotSelecting(false);
+											setSelectedSlotIdxs([]);
+											setSelectionTouched(false);
 											setForm((f) => ({
 												...f,
 												court_id: nextCourtId,
@@ -590,29 +759,12 @@ export default function Reservations() {
 									<div className="grid grid-cols-3 gap-2">
 										{slots.map((s, idx) => {
 											const busy = isSlotBusy(s);
-											const hasSelection =
-												slotStartIdx != null &&
-												slotEndIdx != null;
-											const minIdx = hasSelection
-												? Math.min(
-														slotStartIdx,
-														slotEndIdx,
-													)
-												: null;
-											const maxIdx = hasSelection
-												? Math.max(
-														slotStartIdx,
-														slotEndIdx,
-													)
-												: null;
+											const past = isSlotPast(s);
 											const selected =
-												minIdx != null &&
-												maxIdx != null &&
-												idx >= minIdx &&
-												idx <= maxIdx;
+												selectedSlotIdxs.includes(idx);
 											const className = selected
 												? "px-2 py-2 rounded bg-blue-600 text-white"
-												: busy
+												: busy || past
 													? "px-2 py-2 rounded bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
 													: "px-2 py-2 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800";
 											return (
@@ -620,64 +772,50 @@ export default function Reservations() {
 													key={`${s.start}-${s.end}`}
 													type="button"
 													className={className}
-													disabled={busy}
+													disabled={busy || past}
 													onClick={() => {
+														setSelectionTouched(
+															true,
+														);
 														setError("");
-														if (
-															!slotSelecting ||
-															slotStartIdx == null
-														) {
-															setSlotStartIdx(
+														const current =
+															selectedSlotIdxs;
+														const next =
+															current.includes(
 																idx,
-															);
-															setSlotEndIdx(idx);
-															setSlotSelecting(
-																true,
-															);
-															setForm((f) => ({
-																...f,
-																start_time:
-																	s.start,
-																end_time: s.end,
-															}));
+															)
+																? current.filter(
+																		(i) =>
+																			i !==
+																			idx,
+																	)
+																: [
+																		...current,
+																		idx,
+																	];
+														next.sort(
+															(a, b) => a - b,
+														);
+														setSelectedSlotIdxs(
+															next,
+														);
+														if (!next.length) {
+															applySelection([]);
+															setError("");
 															return;
 														}
-
-														const min = Math.min(
-															slotStartIdx,
-															idx,
-														);
-														const max = Math.max(
-															slotStartIdx,
-															idx,
-														);
-														for (
-															let i = min;
-															i <= max;
-															i += 1
+														if (
+															!isContiguousSelection(
+																next,
+															)
 														) {
-															if (
-																isSlotBusy(
-																	slots[i],
-																)
-															) {
-																setError(
-																	"Hay horas ocupadas dentro del rango seleccionado.",
-																);
-																return;
-															}
+															setError(
+																"Seleccioná horas contiguas para una sola reserva.",
+															);
+															return;
 														}
-														setSlotStartIdx(min);
-														setSlotEndIdx(max);
-														setSlotSelecting(false);
-														setForm((f) => ({
-															...f,
-															start_time:
-																slots[min]
-																	.start,
-															end_time:
-																slots[max].end,
-														}));
+														setError("");
+														applySelection(next);
 													}}
 												>
 													{s.start} - {s.end}
@@ -691,15 +829,15 @@ export default function Reservations() {
 												Seleccionado:{" "}
 												{formatTime(form.start_time)} -{" "}
 												{formatTime(form.end_time)}{" "}
-												{slotStartIdx != null &&
-												slotEndIdx != null
-													? `(${Math.abs(slotEndIdx - slotStartIdx) + 1} h)`
+												{selectedSlotIdxs.length
+													? `(${selectedSlotIdxs.length} h)`
 													: null}
 											</div>
 											<button
 												type="button"
 												className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
 												onClick={() => {
+													setSelectionTouched(true);
 													const start = formatTime(
 														selectedCourt?.open_time ||
 															"08:00",
@@ -708,9 +846,7 @@ export default function Reservations() {
 														start,
 														1,
 													);
-													setSlotStartIdx(0);
-													setSlotEndIdx(0);
-													setSlotSelecting(false);
+													setSelectedSlotIdxs([]);
 													setError("");
 													setForm((f) => ({
 														...f,
@@ -1015,6 +1151,22 @@ export default function Reservations() {
 											}
 										}
 										if (step === 2) {
+											if (!selectedSlotIdxs.length) {
+												setError(
+													"Seleccioná un horario",
+												);
+												return;
+											}
+											if (
+												!isContiguousSelection(
+													selectedSlotIdxs,
+												)
+											) {
+												setError(
+													"Seleccioná horas contiguas para una sola reserva.",
+												);
+												return;
+											}
 											const s = toMinutes(
 												formatTime(form.start_time),
 											);
@@ -1024,6 +1176,15 @@ export default function Reservations() {
 											if (!(e > s)) {
 												setError(
 													"Seleccioná un horario",
+												);
+												return;
+											}
+											if (
+												date === today() &&
+												s < nowMinutes
+											) {
+												setError(
+													"No se puede reservar horas anteriores a la hora actual.",
 												);
 												return;
 											}

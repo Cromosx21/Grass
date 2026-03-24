@@ -1,5 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import {
+	LuLayoutDashboard,
+	LuCalendarDays,
+	LuClock,
+	LuCircleDollarSign,
+	LuSettings,
+	LuLogOut,
+	LuSun,
+	LuMoon,
+} from "react-icons/lu";
 
 export default function MainLayout() {
 	const navigate = useNavigate();
@@ -24,142 +34,105 @@ export default function MainLayout() {
 
 	function logout() {
 		localStorage.removeItem("token");
-		navigate("/login");
+		navigate("/");
 	}
 
 	const linkClass = useMemo(
 		() =>
 			({ isActive }) =>
 				isActive
-					? "px-3 py-2 rounded bg-blue-600 text-white"
-					: "px-3 py-2 rounded text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800",
+					? "px-3 py-2 rounded-lg bg-blue-600 text-white font-medium flex items-center gap-2 transition-colors shadow-sm"
+					: "px-3 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-2 transition-colors",
 		[],
 	);
 
 	return (
-		<div className="min-h-screen bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
-			<header className="sticky top-0 z-10 bg-white/90 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800">
-				<div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-					<div className="font-semibold tracking-tight">Grass</div>
-					<nav className="hidden md:flex items-center gap-2">
-						<NavLink to="/" end className={linkClass}>
+		<div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-200">
+			<header className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm">
+				<div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+					<div className="font-bold text-xl tracking-tight text-blue-600 dark:text-blue-500">
+						Grass
+					</div>
+					<nav className="hidden md:flex items-center gap-1">
+						<NavLink to="/admin" end className={linkClass}>
+							<LuLayoutDashboard size={18} />
 							Dashboard
 						</NavLink>
-						<NavLink to="/reservas" className={linkClass}>
+						<NavLink to="/admin/reservas" className={linkClass}>
+							<LuCalendarDays size={18} />
 							Reservas
 						</NavLink>
-						<NavLink to="/historial" className={linkClass}>
+						<NavLink to="/admin/historial" className={linkClass}>
+							<LuClock size={18} />
 							Historial
 						</NavLink>
-						<NavLink to="/ventas" className={linkClass}>
+						<NavLink to="/admin/ventas" className={linkClass}>
+							<LuCircleDollarSign size={18} />
 							Ventas
 						</NavLink>
-						<NavLink to="/configuracion" className={linkClass}>
+						<NavLink
+							to="/admin/configuracion"
+							className={linkClass}
+						>
+							<LuSettings size={18} />
 							Configuración
 						</NavLink>
 					</nav>
 					<div className="flex items-center gap-2">
 						<button
 							type="button"
-							className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+							className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center"
 							onClick={() =>
-								setTheme((t) => (t === "dark" ? "light" : "dark"))
+								setTheme((t) =>
+									t === "dark" ? "light" : "dark",
+								)
 							}
+							aria-label="Cambiar tema"
 						>
 							{theme === "dark" ? (
-								<svg
-									width="18"
-									height="18"
-									viewBox="0 0 24 24"
-									fill="none"
-									xmlns="http://www.w3.org/2000/svg"
-									aria-hidden="true"
-									className="text-yellow-500"
-								>
-									<path
-										d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z"
-										stroke="currentColor"
-										strokeWidth="2"
-									/>
-									<path
-										d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"
-										stroke="currentColor"
-										strokeWidth="2"
-										strokeLinecap="round"
-									/>
-								</svg>
+								<LuSun size={18} className="text-amber-500" />
 							) : (
-								<svg
-									width="18"
-									height="18"
-									viewBox="0 0 24 24"
-									fill="none"
-									xmlns="http://www.w3.org/2000/svg"
-									aria-hidden="true"
-									className="text-indigo-500"
-								>
-									<path
-										d="M21 13.5A7.5 7.5 0 0 1 10.5 3a6.5 6.5 0 1 0 10.5 10.5Z"
-										stroke="currentColor"
-										strokeWidth="2"
-										strokeLinejoin="round"
-									/>
-								</svg>
+								<LuMoon size={18} className="text-blue-600" />
 							)}
-							{theme === "dark" ? "Modo día" : "Modo noche"}
 						</button>
 						<button
 							onClick={logout}
-							className="px-3 py-2 rounded text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-2"
+							className="px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-2 transition-colors"
 						>
-							<svg
-								width="18"
-								height="18"
-								viewBox="0 0 24 24"
-								fill="none"
-								xmlns="http://www.w3.org/2000/svg"
-								aria-hidden="true"
-							>
-								<path
-									d="M10 7V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-2"
-									stroke="currentColor"
-									strokeWidth="2"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-								/>
-								<path
-									d="M14 12H3m0 0 3-3m-3 3 3 3"
-									stroke="currentColor"
-									strokeWidth="2"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-								/>
-							</svg>
-							Salir
+							<LuLogOut size={18} />
+							<span className="hidden sm:inline">Salir</span>
 						</button>
 					</div>
 				</div>
-				<div className="md:hidden px-4 pb-3">
-					<nav className="flex flex-wrap gap-2">
-						<NavLink to="/" end className={linkClass}>
+				<div className="md:hidden px-4 pb-3 overflow-x-auto">
+					<nav className="flex items-center gap-2 whitespace-nowrap">
+						<NavLink to="/admin" end className={linkClass}>
+							<LuLayoutDashboard size={18} />
 							Dashboard
 						</NavLink>
-						<NavLink to="/reservas" className={linkClass}>
+						<NavLink to="/admin/reservas" className={linkClass}>
+							<LuCalendarDays size={18} />
 							Reservas
 						</NavLink>
-						<NavLink to="/historial" className={linkClass}>
+						<NavLink to="/admin/historial" className={linkClass}>
+							<LuClock size={18} />
 							Historial
 						</NavLink>
-						<NavLink to="/ventas" className={linkClass}>
+						<NavLink to="/admin/ventas" className={linkClass}>
+							<LuCircleDollarSign size={18} />
 							Ventas
 						</NavLink>
-						<NavLink to="/configuracion" className={linkClass}>
+						<NavLink
+							to="/admin/configuracion"
+							className={linkClass}
+						>
+							<LuSettings size={18} />
 							Configuración
 						</NavLink>
 					</nav>
 				</div>
 			</header>
-			<main className="max-w-6xl mx-auto p-4">
+			<main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
 				<Outlet />
 			</main>
 		</div>

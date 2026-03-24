@@ -7,6 +7,18 @@ import {
 	listSales,
 	listSalesHistory,
 } from "../services/api";
+import {
+	LuCalendarDays,
+	LuFilter,
+	LuCircleCheck,
+	LuClock,
+	LuChevronLeft,
+	LuChevronRight,
+	LuMapPin,
+	LuCalendar,
+	LuDollarSign,
+	LuCreditCard,
+} from "react-icons/lu";
 
 const fmtDateShortPE = new Intl.DateTimeFormat("es-PE", {
 	timeZone: "America/Lima",
@@ -255,62 +267,86 @@ export default function History() {
 	);
 
 	return (
-		<div>
-			<div className="flex items-center gap-2 mb-4">
+		<div className="space-y-6">
+			<div>
+				<h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+					Historial
+				</h1>
+				<p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+					Revisa el registro de reservas y ventas pasadas.
+				</p>
+			</div>
+
+			<div className="flex bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl w-fit">
 				<button
-					className={
+					className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
 						tab === "reservas"
-							? "px-3 py-2 rounded bg-blue-600 text-white"
-							: "px-3 py-2 rounded border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
-					}
+							? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
+							: "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+					}`}
 					onClick={() => {
 						setTab("reservas");
 						setSales([]);
 					}}
 				>
+					<LuCalendarDays size={16} />
 					Reservas
 				</button>
 				<button
-					className={
+					className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
 						tab === "ventas"
-							? "px-3 py-2 rounded bg-blue-600 text-white"
-							: "px-3 py-2 rounded border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
-					}
+							? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
+							: "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+					}`}
 					onClick={() => {
 						setTab("ventas");
 						setRows([]);
 					}}
 				>
+					<LuDollarSign size={16} />
 					Ventas
 				</button>
 			</div>
-			<div className="flex flex-col md:flex-row md:items-end gap-4 mb-6">
+
+			<div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl p-4 sm:p-5 flex flex-wrap gap-4 items-end">
 				<div>
-					<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+					<label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
 						Desde
 					</label>
-					<input
-						type="date"
-						className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-						value={from}
-						onChange={(e) => setFrom(e.target.value)}
-					/>
+					<div className="relative">
+						<LuCalendar
+							className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+							size={16}
+						/>
+						<input
+							type="date"
+							className="pl-9 pr-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+							value={from}
+							onChange={(e) => setFrom(e.target.value)}
+						/>
+					</div>
 				</div>
 				<div>
-					<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+					<label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
 						Hasta
 					</label>
-					<input
-						type="date"
-						className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-						value={to}
-						onChange={(e) => setTo(e.target.value)}
-					/>
+					<div className="relative">
+						<LuCalendar
+							className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+							size={16}
+						/>
+						<input
+							type="date"
+							className="pl-9 pr-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+							value={to}
+							onChange={(e) => setTo(e.target.value)}
+						/>
+					</div>
 				</div>
-				<div className="flex items-center gap-2 h-[42px]">
+				<div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg h-[42px]">
 					<button
 						type="button"
-						className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+						className="p-1.5 rounded-md text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all"
 						onClick={() => {
 							const nextFrom = addDays(from, -1);
 							const nextTo = addDays(to, -1);
@@ -318,12 +354,13 @@ export default function History() {
 							setTo(nextTo);
 							refresh({ from: nextFrom, to: nextTo });
 						}}
+						title="Anterior"
 					>
-						Anterior
+						<LuChevronLeft size={16} />
 					</button>
 					<button
 						type="button"
-						className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+						className="px-3 py-1 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all"
 						onClick={() => {
 							const today = formatDate(new Date());
 							setFrom(today);
@@ -335,7 +372,7 @@ export default function History() {
 					</button>
 					<button
 						type="button"
-						className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+						className="p-1.5 rounded-md text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all"
 						onClick={() => {
 							const nextFrom = addDays(from, 1);
 							const nextTo = addDays(to, 1);
@@ -343,442 +380,508 @@ export default function History() {
 							setTo(nextTo);
 							refresh({ from: nextFrom, to: nextTo });
 						}}
+						title="Siguiente"
 					>
-						Siguiente
+						<LuChevronRight size={16} />
 					</button>
 				</div>
 				{tab === "reservas" ? (
-					<div className="w-full sm:w-64">
-						<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+					<div className="flex-1 min-w-[200px] max-w-[300px]">
+						<label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
 							Cancha
 						</label>
-						<select
-							className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-							value={courtId}
-							onChange={(e) => {
-								const next = e.target.value;
-								setCourtId(next);
-								refresh({ courtId: next });
-							}}
-						>
-							<option value="">Todas</option>
-							{courts.map((c) => (
-								<option key={c.id} value={c.id}>
-									{c.name}
-								</option>
-							))}
-						</select>
+						<div className="relative">
+							<LuMapPin
+								className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+								size={16}
+							/>
+							<select
+								className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors appearance-none"
+								value={courtId}
+								onChange={(e) => {
+									const next = e.target.value;
+									setCourtId(next);
+									refresh({ courtId: next });
+								}}
+							>
+								<option value="">Todas</option>
+								{courts.map((c) => (
+									<option key={c.id} value={c.id}>
+										{c.name}
+									</option>
+								))}
+							</select>
+						</div>
 					</div>
 				) : (
 					<div className="flex-1" />
 				)}
 				<button
-					className="bg-blue-600 hover:bg-blue-700 transition text-white px-4 py-2 rounded h-[42px]"
+					className="bg-slate-800 dark:bg-slate-100 hover:bg-slate-900 dark:hover:bg-white transition-colors text-white dark:text-slate-900 px-4 py-2 rounded-lg font-medium h-[42px] flex items-center gap-2"
 					onClick={refresh}
 				>
+					<LuFilter size={16} />
 					Filtrar
 				</button>
 			</div>
 
 			{tab === "reservas" ? (
-				<div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 overflow-x-auto">
-					<table className="min-w-full text-sm">
-						<thead className="bg-gray-50 dark:bg-gray-950 text-gray-600 dark:text-gray-300">
-							<tr>
-								<th className="text-left font-medium px-4 py-3">
-									Fecha
-								</th>
-								<th className="text-left font-medium px-4 py-3">
-									Hora
-								</th>
-								<th className="text-left font-medium px-4 py-3">
-									Cancha
-								</th>
-								<th className="text-left font-medium px-4 py-3">
-									Cliente
-								</th>
-								<th className="text-right font-medium px-4 py-3">
-									Total
-								</th>
-								<th className="text-right font-medium px-4 py-3">
-									Pagado
-								</th>
-								<th className="text-right font-medium px-4 py-3">
-									Saldo
-								</th>
-								<th className="text-left font-medium px-4 py-3">
-									Medio
-								</th>
-								<th className="text-right font-medium px-4 py-3">
-									Acciones
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{loading ? (
+				<div className="bg-white dark:bg-slate-900 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 overflow-hidden">
+					<div className="overflow-x-auto">
+						<table className="min-w-full text-sm">
+							<thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
 								<tr>
-									<td
-										className="px-4 py-4 text-gray-600"
-										colSpan={9}
-									>
-										Cargando...
-									</td>
+									<th className="text-left font-semibold px-4 py-3 whitespace-nowrap">
+										Fecha
+									</th>
+									<th className="text-left font-semibold px-4 py-3 whitespace-nowrap">
+										Hora
+									</th>
+									<th className="text-left font-semibold px-4 py-3 whitespace-nowrap">
+										Cancha
+									</th>
+									<th className="text-left font-semibold px-4 py-3 whitespace-nowrap">
+										Cliente
+									</th>
+									<th className="text-right font-semibold px-4 py-3 whitespace-nowrap">
+										Total
+									</th>
+									<th className="text-right font-semibold px-4 py-3 whitespace-nowrap">
+										Pagado
+									</th>
+									<th className="text-right font-semibold px-4 py-3 whitespace-nowrap">
+										Saldo
+									</th>
+									<th className="text-left font-semibold px-4 py-3 whitespace-nowrap">
+										Medio
+									</th>
+									<th className="text-right font-semibold px-4 py-3 whitespace-nowrap">
+										Acciones
+									</th>
 								</tr>
-							) : visibleReservationRows.length ? (
-								visibleReservationRows.map((r) => {
-									const remaining = Number(
-										r.remaining != null
-											? r.remaining
-											: Number(r.price || 0) -
-													Number(r.deposit || 0),
-									);
-									const canPay = remaining > 0.00001;
-									return (
-										<tr
-											key={r.id}
-											className="border-t border-gray-100 odd:bg-gray-50 dark:odd:bg-gray-950/40 hover:bg-gray-50 dark:hover:bg-gray-800/40"
+							</thead>
+							<tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+								{loading ? (
+									<tr>
+										<td
+											className="px-4 py-8 text-center text-slate-500"
+											colSpan={9}
 										>
-											<td className="px-4 py-3 whitespace-nowrap">
-												{toDateShortPE(r.date)}
-											</td>
-											<td className="px-4 py-3 whitespace-nowrap">
-												{formatTime(r.start_time)} -{" "}
-												{formatTime(r.end_time)}
-											</td>
-											<td className="px-4 py-3 whitespace-nowrap">
-												{r.court_name || r.court_id}
-											</td>
-											<td className="px-4 py-3 whitespace-nowrap">
-												{r.customer_name}
-											</td>
-											<td className="px-4 py-3 text-right whitespace-nowrap">
-												{money(r.price)}
-											</td>
-											<td className="px-4 py-3 text-right whitespace-nowrap">
-												{money(r.deposit)}
-											</td>
-											<td className="px-4 py-3 text-right whitespace-nowrap">
-												{money(Math.max(0, remaining))}
-											</td>
-											<td className="px-4 py-3 whitespace-nowrap">
-												{paymentMethodLabel(
-													r.payment_method,
-												)}
-											</td>
-											<td className="px-4 py-3 text-right whitespace-nowrap">
-												{canPay ? (
-													<button
-														type="button"
-														className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 transition text-white"
-														onClick={() =>
-															openPay(r)
-														}
+											<div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-blue-600 border-r-transparent mb-2"></div>
+											<div>Cargando reservas...</div>
+										</td>
+									</tr>
+								) : visibleReservationRows.length ? (
+									visibleReservationRows.map((r) => {
+										const remaining = Number(
+											r.remaining != null
+												? r.remaining
+												: Number(r.price || 0) -
+														Number(r.deposit || 0),
+										);
+										const canPay = remaining > 0.00001;
+										return (
+											<tr
+												key={r.id}
+												className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+											>
+												<td className="px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">
+													{toDateShortPE(r.date)}
+												</td>
+												<td className="px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">
+													{formatTime(r.start_time)} -{" "}
+													{formatTime(r.end_time)}
+												</td>
+												<td className="px-4 py-3 whitespace-nowrap font-medium text-slate-900 dark:text-slate-100">
+													{r.court_name || r.court_id}
+												</td>
+												<td className="px-4 py-3 whitespace-nowrap font-medium text-slate-900 dark:text-slate-100">
+													{r.customer_name}
+												</td>
+												<td className="px-4 py-3 text-right whitespace-nowrap font-medium text-slate-900 dark:text-slate-100">
+													{money(r.price)}
+												</td>
+												<td className="px-4 py-3 text-right whitespace-nowrap text-emerald-600 dark:text-emerald-400">
+													{money(r.deposit)}
+												</td>
+												<td className="px-4 py-3 text-right whitespace-nowrap">
+													<span
+														className={`font-medium ${canPay ? "text-amber-600 dark:text-amber-500" : "text-slate-500 dark:text-slate-400"}`}
 													>
-														Completar pago
-													</button>
-												) : (
-													<span className="text-xs text-gray-600 dark:text-gray-300">
-														Pagado
+														{money(
+															Math.max(
+																0,
+																remaining,
+															),
+														)}
 													</span>
-												)}
-											</td>
-										</tr>
-									);
-								})
-							) : (
-								<tr>
-									<td
-										className="px-4 py-4 text-gray-600"
-										colSpan={9}
-									>
-										Sin resultados
-									</td>
-								</tr>
-							)}
-						</tbody>
-						{!loading && visibleReservationRows.length ? (
-							<tfoot>
-								<tr className="bg-gray-50 dark:bg-gray-950 text-gray-700 dark:text-gray-200 border-t border-gray-200 dark:border-gray-800">
-									<td
-										className="px-4 py-3 font-medium"
-										colSpan={4}
-									>
-										Total ingreso
-									</td>
-									<td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
-										{money(reservationTotals.total)}
-									</td>
-									<td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
-										{money(reservationTotals.paid)}
-									</td>
-									<td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
-										{money(reservationTotals.remaining)}
-									</td>
-									<td className="px-4 py-3" colSpan={2} />
-								</tr>
-							</tfoot>
-						) : null}
-					</table>
+												</td>
+												<td className="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-400">
+													{paymentMethodLabel(
+														r.payment_method,
+													)}
+												</td>
+												<td className="px-4 py-3 text-right whitespace-nowrap">
+													{canPay ? (
+														<button
+															type="button"
+															className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 transition-colors text-xs font-medium flex items-center gap-1.5 ml-auto"
+															onClick={() =>
+																openPay(r)
+															}
+														>
+															<LuDollarSign
+																size={14}
+															/>
+															Completar pago
+														</button>
+													) : (
+														<span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 text-xs font-medium">
+															<LuCircleCheck
+																size={12}
+															/>
+															Pagado
+														</span>
+													)}
+												</td>
+											</tr>
+										);
+									})
+								) : (
+									<tr>
+										<td
+											className="px-4 py-8 text-center text-slate-500"
+											colSpan={9}
+										>
+											<LuCalendarDays
+												size={24}
+												className="mx-auto mb-2 opacity-30"
+											/>
+											Sin resultados para este periodo
+										</td>
+									</tr>
+								)}
+							</tbody>
+							{!loading && visibleReservationRows.length ? (
+								<tfoot className="bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800">
+									<tr>
+										<td
+											className="px-4 py-4 font-semibold text-slate-900 dark:text-white uppercase tracking-wider text-xs"
+											colSpan={4}
+										>
+											Totales del periodo
+										</td>
+										<td className="px-4 py-4 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">
+											{money(reservationTotals.total)}
+										</td>
+										<td className="px-4 py-4 text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+											{money(reservationTotals.paid)}
+										</td>
+										<td className="px-4 py-4 text-right font-bold text-amber-600 dark:text-amber-500 whitespace-nowrap">
+											{money(reservationTotals.remaining)}
+										</td>
+										<td className="px-4 py-4" colSpan={2} />
+									</tr>
+								</tfoot>
+							) : null}
+						</table>
+					</div>
 				</div>
 			) : (
-				<div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 overflow-x-auto">
-					<table className="min-w-full text-sm">
-						<thead className="bg-gray-50 dark:bg-gray-950 text-gray-600 dark:text-gray-300">
-							<tr>
-								<th className="text-left font-medium px-4 py-3">
-									Fecha
-								</th>
-								<th className="text-left font-medium px-4 py-3">
-									Hora
-								</th>
-								<th className="text-left font-medium px-4 py-3">
-									Producto
-								</th>
-								<th className="text-right font-medium px-4 py-3">
-									Cant.
-								</th>
-								<th className="text-right font-medium px-4 py-3">
-									Total
-								</th>
-								<th className="text-left font-medium px-4 py-3">
-									Medio
-								</th>
-								<th className="text-left font-medium px-4 py-3">
-									Vendedor
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{loading ? (
+				<div className="bg-white dark:bg-slate-900 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 overflow-hidden">
+					<div className="overflow-x-auto">
+						<table className="min-w-full text-sm">
+							<thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
 								<tr>
-									<td
-										className="px-4 py-4 text-gray-600"
-										colSpan={7}
-									>
-										Cargando...
-									</td>
+									<th className="text-left font-semibold px-4 py-3 whitespace-nowrap">
+										Fecha
+									</th>
+									<th className="text-left font-semibold px-4 py-3 whitespace-nowrap">
+										Hora
+									</th>
+									<th className="text-left font-semibold px-4 py-3 whitespace-nowrap">
+										Producto
+									</th>
+									<th className="text-right font-semibold px-4 py-3 whitespace-nowrap">
+										Cant.
+									</th>
+									<th className="text-right font-semibold px-4 py-3 whitespace-nowrap">
+										Total
+									</th>
+									<th className="text-left font-semibold px-4 py-3 whitespace-nowrap">
+										Medio
+									</th>
+									<th className="text-left font-semibold px-4 py-3 whitespace-nowrap">
+										Vendedor
+									</th>
 								</tr>
-							) : sales.length ? (
-								sales.map((s) => {
-									const saleId = s.sale_id ?? s.id;
-									const created = s.created_at
-										? new Date(s.created_at)
-										: null;
-									const date =
-										created &&
-										!Number.isNaN(created.getTime())
-											? fmtDateShortPE.format(created)
-											: "-";
-									const time =
-										created &&
-										!Number.isNaN(created.getTime())
-											? fmtTimeShortPE.format(created)
-											: "-";
-									return (
-										<tr
-											key={`${saleId}-${s.product_name || ""}-${s.quantity || ""}-${String(s.price || "")}`}
-											className="border-t border-gray-100 odd:bg-gray-50 dark:odd:bg-gray-950/40 hover:bg-gray-50 dark:hover:bg-gray-800/40"
+							</thead>
+							<tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+								{loading ? (
+									<tr>
+										<td
+											className="px-4 py-8 text-center text-slate-500"
+											colSpan={7}
 										>
-											<td className="px-4 py-3 whitespace-nowrap">
-												{date}
-											</td>
-											<td className="px-4 py-3 whitespace-nowrap">
-												{time}
-											</td>
-											<td className="px-4 py-3 whitespace-nowrap">
-												{s.product_name || "-"}
-											</td>
-											<td className="px-4 py-3 text-right whitespace-nowrap">
-												{Number(s.quantity || 0)}
-											</td>
-											<td className="px-4 py-3 text-right whitespace-nowrap">
-												{money(
-													Number(
-														s.line_total != null
-															? s.line_total
-															: Number(
-																	s.price ||
-																		0,
-																) *
-																	Number(
-																		s.quantity ||
+											<div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-blue-600 border-r-transparent mb-2"></div>
+											<div>Cargando ventas...</div>
+										</td>
+									</tr>
+								) : sales.length ? (
+									sales.map((s) => {
+										const saleId = s.sale_id ?? s.id;
+										const created = s.created_at
+											? new Date(s.created_at)
+											: null;
+										const date =
+											created &&
+											!Number.isNaN(created.getTime())
+												? fmtDateShortPE.format(created)
+												: "-";
+										const time =
+											created &&
+											!Number.isNaN(created.getTime())
+												? fmtTimeShortPE.format(created)
+												: "-";
+										return (
+											<tr
+												key={`${saleId}-${s.product_name || ""}-${s.quantity || ""}-${String(s.price || "")}`}
+												className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+											>
+												<td className="px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">
+													{date}
+												</td>
+												<td className="px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">
+													{time}
+												</td>
+												<td className="px-4 py-3 whitespace-nowrap font-medium text-slate-900 dark:text-slate-100">
+													{s.product_name || "-"}
+												</td>
+												<td className="px-4 py-3 text-right whitespace-nowrap text-slate-700 dark:text-slate-300">
+													{Number(s.quantity || 0)}
+												</td>
+												<td className="px-4 py-3 text-right whitespace-nowrap font-medium text-slate-900 dark:text-slate-100">
+													{money(
+														Number(
+															s.line_total != null
+																? s.line_total
+																: Number(
+																		s.price ||
 																			0,
-																	),
-													),
-												)}
-											</td>
-											<td className="px-4 py-3 whitespace-nowrap">
-												{paymentMethodLabel(
-													s.payment_method,
-												)}
-											</td>
-											<td className="px-4 py-3 whitespace-nowrap">
-												{s.seller_name ||
-													s.seller_email ||
-													"-"}
-											</td>
-										</tr>
-									);
-								})
-							) : (
-								<tr>
-									<td
-										className="px-4 py-4 text-gray-600"
-										colSpan={7}
-									>
-										Sin resultados
-									</td>
-								</tr>
-							)}
-						</tbody>
-					</table>
+																	) *
+																		Number(
+																			s.quantity ||
+																				0,
+																		),
+														),
+													)}
+												</td>
+												<td className="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-400">
+													{paymentMethodLabel(
+														s.payment_method,
+													)}
+												</td>
+												<td className="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-400">
+													{s.seller_name ||
+														s.seller_email ||
+														"-"}
+												</td>
+											</tr>
+										);
+									})
+								) : (
+									<tr>
+										<td
+											className="px-4 py-8 text-center text-slate-500"
+											colSpan={7}
+										>
+											<LuDollarSign
+												size={24}
+												className="mx-auto mb-2 opacity-30"
+											/>
+											Sin resultados para este periodo
+										</td>
+									</tr>
+								)}
+							</tbody>
+						</table>
+					</div>
 				</div>
 			)}
 
 			{payOpen && payReservation ? (
-				<div className="fixed inset-0 bg-black/50 flex items-center justify-center px-4">
-					<div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-lg border border-gray-200 dark:border-gray-800 shadow-sm p-5">
-						<div className="flex items-start justify-between gap-3">
+				<div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+					<div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+						<div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start">
 							<div>
-								<div className="text-lg font-semibold">
+								<h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+									<LuDollarSign className="text-blue-500" />{" "}
 									Completar pago
-								</div>
-								<div className="text-sm text-gray-600 dark:text-gray-300">
+								</h3>
+								<p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
 									{payReservation.customer_name} ·{" "}
 									{toDateShortPE(payReservation.date)} ·{" "}
 									{formatTime(payReservation.start_time)}-
 									{formatTime(payReservation.end_time)}
-								</div>
+								</p>
 							</div>
 							<button
 								type="button"
 								onClick={closePay}
-								className="px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300"
+								className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
 							>
-								Cerrar
+								✕
 							</button>
 						</div>
+						<div className="p-6">
+							{payError && (
+								<div className="mb-4 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg p-3 flex items-center gap-2">
+									<span className="w-1.5 h-1.5 rounded-full bg-red-500 block"></span>
+									{payError}
+								</div>
+							)}
 
-						{payError ? (
-							<div className="mt-3 text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded p-2">
-								{payError}
-							</div>
-						) : null}
-
-						<div className="mt-4 grid grid-cols-3 gap-2">
-							<div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded p-2">
-								<div className="text-xs text-gray-600 dark:text-gray-300">
-									Total
+							<div className="grid grid-cols-3 gap-3 mb-5">
+								<div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl p-3 text-center">
+									<div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
+										Total
+									</div>
+									<div className="font-bold text-slate-900 dark:text-white">
+										{money(payReservation.price)}
+									</div>
 								</div>
-								<div className="font-semibold">
-									{money(payReservation.price)}
+								<div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-xl p-3 text-center">
+									<div className="text-xs font-medium text-emerald-600 dark:text-emerald-500 uppercase tracking-wider mb-1">
+										Pagado
+									</div>
+									<div className="font-bold text-emerald-700 dark:text-emerald-400">
+										{money(payReservation.deposit)}
+									</div>
 								</div>
-							</div>
-							<div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded p-2">
-								<div className="text-xs text-gray-600 dark:text-gray-300">
-									Pagado
-								</div>
-								<div className="font-semibold">
-									{money(payReservation.deposit)}
-								</div>
-							</div>
-							<div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded p-2">
-								<div className="text-xs text-gray-600 dark:text-gray-300">
-									Saldo
-								</div>
-								<div className="font-semibold">
-									{money(
-										Math.max(
-											0,
-											Number(payReservation.price || 0) -
-												Number(
-													payReservation.deposit || 0,
-												),
-										),
-									)}
-								</div>
-							</div>
-						</div>
-
-						<div className="mt-4">
-							<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-								Nuevo pagado (total acumulado)
-							</label>
-							<input
-								type="number"
-								step="0.01"
-								min="0"
-								className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-								value={payDeposit}
-								onChange={(e) => setPayDeposit(e.target.value)}
-							/>
-							<div className="mt-2 flex items-center gap-2">
-								<button
-									type="button"
-									className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-									onClick={() =>
-										setPayDeposit(
-											String(
+								<div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl p-3 text-center">
+									<div className="text-xs font-medium text-amber-600 dark:text-amber-500 uppercase tracking-wider mb-1">
+										Saldo
+									</div>
+									<div className="font-bold text-amber-700 dark:text-amber-400">
+										{money(
+											Math.max(
+												0,
 												Number(
 													payReservation.price || 0,
-												),
+												) -
+													Number(
+														payReservation.deposit ||
+															0,
+													),
 											),
-										)
-									}
+										)}
+									</div>
+								</div>
+							</div>
+
+							<div className="space-y-4">
+								<div>
+									<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+										Nuevo pagado (total acumulado)
+									</label>
+									<input
+										type="number"
+										step="0.01"
+										min="0"
+										className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+										value={payDeposit}
+										onChange={(e) =>
+											setPayDeposit(e.target.value)
+										}
+									/>
+									<div className="mt-2 flex items-center gap-2">
+										<button
+											type="button"
+											className="px-3 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors"
+											onClick={() =>
+												setPayDeposit(
+													String(
+														Number(
+															payReservation.price ||
+																0,
+														),
+													),
+												)
+											}
+										>
+											Pagar todo
+										</button>
+										<button
+											type="button"
+											className="px-3 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors"
+											onClick={() =>
+												setPayDeposit(
+													String(
+														Number(
+															payReservation.deposit ||
+																0,
+														),
+													),
+												)
+											}
+										>
+											Revertir
+										</button>
+									</div>
+								</div>
+
+								<div>
+									<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+										<LuCreditCard
+											size={16}
+											className="text-slate-400"
+										/>
+										Medio de pago
+									</label>
+									<select
+										className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+										value={payMethod}
+										onChange={(e) =>
+											setPayMethod(e.target.value)
+										}
+									>
+										<option value="cash">Efectivo</option>
+										<option value="transfer">
+											Transferencia
+										</option>
+										<option value="yape_plin">
+											Yape o Plin
+										</option>
+										<option value="card">
+											Pago con Tarjeta
+										</option>
+									</select>
+								</div>
+							</div>
+
+							<div className="flex justify-end gap-3 pt-5 mt-5 border-t border-slate-100 dark:border-slate-800">
+								<button
+									type="button"
+									className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+									onClick={closePay}
+									disabled={paySaving}
 								>
-									Pagar todo
+									Cancelar
 								</button>
 								<button
 									type="button"
-									className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-									onClick={() =>
-										setPayDeposit(
-											String(
-												Number(
-													payReservation.deposit || 0,
-												),
-											),
-										)
-									}
+									className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
+									onClick={savePay}
+									disabled={paySaving}
 								>
-									Revertir
+									{paySaving ? (
+										<div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+									) : (
+										<LuCircleCheck size={16} />
+									)}
+									Guardar
 								</button>
 							</div>
-						</div>
-
-						<div className="mt-4">
-							<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-								Medio de pago
-							</label>
-							<select
-								className="border border-gray-300 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 rounded w-full p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-								value={payMethod}
-								onChange={(e) => setPayMethod(e.target.value)}
-							>
-								<option value="cash">Efectivo</option>
-								<option value="transfer">Transferencia</option>
-								<option value="yape_plin">Yape o Plin</option>
-								<option value="card">Pago con tarjeta</option>
-							</select>
-						</div>
-
-						<div className="mt-5 flex justify-end gap-2">
-							<button
-								type="button"
-								onClick={closePay}
-								className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800"
-								disabled={paySaving}
-							>
-								Cancelar
-							</button>
-							<button
-								type="button"
-								onClick={savePay}
-								className="px-3 py-2 bg-blue-600 hover:bg-blue-700 transition text-white rounded disabled:opacity-50"
-								disabled={paySaving}
-							>
-								{paySaving ? "Guardando..." : "Guardar"}
-							</button>
 						</div>
 					</div>
 				</div>

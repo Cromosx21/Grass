@@ -10,6 +10,25 @@ function parseAmount(v) {
 	return Number.isFinite(n) ? n : null;
 }
 
+async function publicList(req, res, next) {
+	try {
+		const { date, court_id } = req.query;
+		if (!date) return res.status(400).json({ message: "Fecha requerida" });
+		let sql =
+			"SELECT id, court_id, date, start_time, end_time, status FROM reservations WHERE date = ? AND status <> 'cancelled'";
+		const params = [date];
+		if (court_id) {
+			sql += " AND court_id = ?";
+			params.push(court_id);
+		}
+		sql += " ORDER BY start_time ASC";
+		const [rows] = await pool.query(sql, params);
+		res.json(rows);
+	} catch (err) {
+		next(err);
+	}
+}
+
 async function list(req, res, next) {
 	try {
 		const { date, court_id } = req.query;
@@ -237,4 +256,4 @@ async function remove(req, res, next) {
 	}
 }
 
-module.exports = { list, history, create, update, remove };
+module.exports = { publicList, list, history, create, update, remove };
