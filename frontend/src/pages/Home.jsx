@@ -203,22 +203,25 @@ export default function Home() {
 
 			<main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
 				{/* Hero Section */}
-				<div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md rounded-2xl p-6 sm:p-10 relative overflow-hidden">
-					<div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
-					<div className="text-3xl sm:text-4xl font-bold mb-2">
-						Bienvenido a {businessName}
+				<div className=" dark:bg-slate-900 rounded-2xl p-6 sm:p-10 relative overflow-hidden">
+					{/* <div className="absolute top-0 left-0 w-full h-2 bg-linear-to-r from-blue-500 to-indigo-600"></div> */}
+					<div className="text-3xl sm:text-4xl font-bold mb-2 text-center">
+						Bienvenido a{" "}
+						<strong className="text-blue-500">
+							{businessName}
+						</strong>
 					</div>
-					<div className="text-slate-600 dark:text-slate-400 text-lg mb-8">
+					<div className="text-slate-600 dark:text-slate-400 text-lg mb-8 text-center">
 						Sigue estos sencillos pasos para asegurar tu cancha.
 					</div>
 
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-6 ">
 						{/* Paso 1 */}
-						<div className="flex flex-col gap-3 p-5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+						<div className="flex flex-col items-center gap-3 p-5 rounded-xl bg-white shadow-md shadow-slate-200 dark:shadow-slate-900 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
 							<div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl shadow-sm">
 								<LuCalendarDays />
 							</div>
-							<div>
+							<div className="text-center">
 								<div className="font-semibold text-lg mb-1">
 									1. Revisa
 								</div>
@@ -230,11 +233,11 @@ export default function Home() {
 						</div>
 
 						{/* Paso 2 */}
-						<div className="flex flex-col gap-3 p-5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+						<div className="flex flex-col items-center gap-3 p-5 rounded-xl bg-white shadow-md shadow-slate-200 dark:shadow-slate-900 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
 							<div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl shadow-sm">
 								<LuMessageCircle />
 							</div>
-							<div>
+							<div className="text-center">
 								<div className="font-semibold text-lg mb-1">
 									2. Comunícate
 								</div>
@@ -242,7 +245,7 @@ export default function Home() {
 									Contáctanos por teléfono o WhatsApp para
 									confirmar tu reserva.
 								</div>
-								<div className="flex flex-wrap gap-2 mt-auto">
+								<div className="flex flex-wrap gap-2 mt-auto justify-center">
 									<a
 										href={
 											telPhone
@@ -276,11 +279,11 @@ export default function Home() {
 						</div>
 
 						{/* Paso 3 */}
-						<div className="flex flex-col gap-3 p-5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+						<div className="flex flex-col items-center gap-3 p-5 rounded-xl bg-white shadow-md shadow-slate-200 dark:bg-slate-800/50 dark:shadow-slate-900 border border-slate-200 dark:border-slate-800">
 							<div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl shadow-sm">
 								<LuMapPin />
 							</div>
-							<div>
+							<div className="text-center">
 								<div className="font-semibold text-lg mb-1">
 									3. Asiste
 								</div>
