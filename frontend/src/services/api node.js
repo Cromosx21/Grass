@@ -1,8 +1,8 @@
-//laravel
+//node
 import axios from "axios";
 
 const api = axios.create({
-	baseURL: import.meta.env.VITE_API_URL || "http://apigrass.test/",
+	baseURL: import.meta.env.VITE_API_URL || "http://localhost:4001",
 });
 
 api.interceptors.request.use((config) => {
@@ -12,12 +12,12 @@ api.interceptors.request.use((config) => {
 });
 
 export async function register(data) {
-	const res = await api.post("/api/register", data);
+	const res = await api.post("/api/auth/register", data);
 	return res.data;
 }
 
 export async function login(data) {
-	const res = await api.post("/api/login", data);
+	const res = await api.post("/api/auth/login", data);
 	return res.data;
 }
 
